@@ -1,34 +1,8 @@
-// Central place for repeated Tailwind class strings so components don't
-// retype the same utility combinations. Expanded further in Phase 3
-// (Modal, StatusBadge) — keep adding here, don't fork new ad-hoc styles.
-
-export const inputClasses =
-  "w-full rounded-app border border-gray-300 px-4 py-2 text-body " +
-  "placeholder:text-gray-500 focus:border-accent-600 focus:outline-none " +
-  "focus-visible:outline-2 focus-visible:outline-accent-600";
-
-export const labelClasses = "block text-meta font-medium text-gray-700 mb-1";
-
-export const buttonPrimaryClasses =
-  "rounded-app bg-accent-600 px-4 py-2 text-body font-medium text-white " +
-  "shadow-card hover:bg-accent-700 hover:shadow-cardHover transition-all " +
-  "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none " +
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-800";
-
-export const cardClasses =
-  "rounded-app border border-surface-border bg-surface p-6 shadow-card " +
-  "transition-shadow";
-
-export const errorTextClasses = "text-meta text-status-danger mt-2";
-
-export const modalOverlayClasses =
-  "fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50";
-
-export const modalPanelClasses =
-  "w-full max-w-md rounded-app bg-surface border border-surface-border p-6 " +
-  "shadow-modal max-h-[90vh] overflow-y-auto";
-
-export const buttonSecondaryClasses =
-  "rounded-app border border-surface-border bg-surface px-4 py-2 text-body " +
-  "font-medium text-gray-700 transition-colors hover:bg-surface-sunken " +
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-800";
+export const inputClasses = "w-full min-h-11 rounded-xl border border-[#dfe4ea] bg-white px-3.5 py-2.5 text-[15px] text-[#17202b] shadow-sm transition placeholder:text-[#8b95a3] focus:border-[#d94235] focus:ring-4 focus:ring-[#d94235]/10 focus:outline-none";
+export const labelClasses = "mb-2 block text-[13px] font-bold tracking-wide text-[#4b5868]";
+export const buttonPrimaryClasses = "inline-flex min-h-11 items-center justify-center rounded-xl bg-[#d94235] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#b93127] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50";
+export const cardClasses = "rounded-2xl border border-[#e4e8ee] bg-white p-5 shadow-[0_12px_32px_rgba(23,32,43,.06)] sm:p-6";
+export const errorTextClasses = "mt-3 rounded-xl border border-[#f2c7c3] bg-[#fff5f4] px-3 py-2 text-sm text-[#a32e26]";
+export const modalOverlayClasses = "fixed inset-0 z-50 flex items-end justify-center bg-[#17202b]/45 p-0 sm:items-center sm:p-4";
+export const modalPanelClasses = "max-h-[92vh] w-full overflow-y-auto rounded-t-3xl border border-[#e4e8ee] bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-2xl sm:p-6";
+export const buttonSecondaryClasses = "inline-flex min-h-11 items-center justify-center rounded-xl border border-[#dfe4ea] bg-white px-4 py-2.5 text-sm font-bold text-[#4b5868] transition hover:bg-[#f5f7fa] hover:text-[#17202b]";

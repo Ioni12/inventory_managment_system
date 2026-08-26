@@ -97,8 +97,8 @@ export default function AssetsTab({ searchQuery = "" }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-title text-gray-900">Assets</h2>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div><p className="eyebrow mb-2">Overview</p><h2 className="text-3xl font-semibold tracking-tight text-[#17202b]">Assets</h2><p className="mt-2 text-sm leading-6 text-[#7a8795]">Track every device, owner, and location at a glance.</p></div>
         <button
           className={buttonPrimaryClasses}
           onClick={() => setModalMode("create")}

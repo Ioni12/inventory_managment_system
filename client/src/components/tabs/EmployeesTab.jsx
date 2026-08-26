@@ -72,8 +72,8 @@ export default function EmployeesTab() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-title text-gray-900">Employees</h2>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div><p className="eyebrow mb-2">People</p><h2 className="text-3xl font-semibold tracking-tight text-[#17202b]">Employees</h2></div>
         <button
           className={buttonPrimaryClasses}
           onClick={() => setModalMode("create")}

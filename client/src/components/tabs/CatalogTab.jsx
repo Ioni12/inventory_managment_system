@@ -204,7 +204,7 @@ function EntitySection({ config }) {
 export default function CatalogTab() {
   return (
     <div>
-      <h2 className="text-title text-gray-900 mb-6">Catalog</h2>
+      <div className="mb-8"><p className="eyebrow mb-2">Configuration</p><h2 className="text-3xl font-semibold tracking-tight text-[#17202b]">Catalog</h2><p className="mt-2 text-sm leading-6 text-[#7a8795]">Keep the building blocks of your inventory organized.</p></div>
       <EntitySection config={ENTITIES.categories} />
       <EntitySection config={ENTITIES.suppliers} />
     </div>
