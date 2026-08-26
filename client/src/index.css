@@ -2,12 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Spacing scale note: use only Tailwind's default 1/2/4/6/8 steps
-   (4/8/16/24/32px) throughout the app — no arbitrary p-[13px] values. */
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #17202b;
+  background: #f5f7fa;
+  font-synthesis: none;
+}
+
+html, body, #root { min-width: 320px; min-height: 100%; }
+body { margin: 0; background: #f5f7fa; }
 
 @layer base {
-  :focus-visible {
-    outline: 2px solid theme("colors.accent.600");
-    outline-offset: 2px;
-  }
+  :focus-visible { outline: 3px solid #d94235; outline-offset: 3px; }
+  button, input, select, textarea { font: inherit; }
+}
+
+@layer components {
+  .app-page { width: min(100%, 1440px); margin-inline: auto; }
+  .surface-panel { border: 1px solid #e4e8ee; border-radius: 18px; background: #fff; box-shadow: 0 12px 32px rgba(23,32,43,.06); }
+  .eyebrow { color: #d94235; font-size: .72rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+}
+
+@media (max-width: 640px) {
+  .mobile-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
