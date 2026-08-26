@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Spacing scale note: use only Tailwind's default 1/2/4/6/8 steps
+   (4/8/16/24/32px) throughout the app — no arbitrary p-[13px] values. */
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid theme("colors.accent.600");
+    outline-offset: 2px;
+  }
+}
