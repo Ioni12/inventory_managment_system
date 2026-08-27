@@ -4,18 +4,18 @@ const Category = require("../models/Category");
 const Supplier = require("../models/Supplier");
 
 const EXPORT_COLUMNS = [
-  { header: "Name", key: "name", width: 25 },
-  { header: "Type", key: "type", width: 15 },
+  { header: "Marka/modeli", key: "name", width: 25 },
+  { header: "Tipi", key: "type", width: 15 },
   { header: "SKU", key: "sku", width: 15 },
-  { header: "Category", key: "categoryName", width: 18 },
-  { header: "Supplier", key: "supplierName", width: 18 },
-  { header: "Unit", key: "unit", width: 10 },
-  { header: "Purchase Price", key: "purchasePrice", width: 15 },
-  { header: "Sale Price", key: "salePrice", width: 12 },
-  { header: "Min Stock", key: "minStock", width: 10 },
-  { header: "Stock", key: "stock", width: 10 },
+  { header: "Kategoria", key: "categoryName", width: 18 },
+  { header: "Furnitori", key: "supplierName", width: 18 },
+  { header: "Njesia", key: "unit", width: 10 },
+  { header: "Cmimi i blerjes", key: "purchasePrice", width: 15 },
+  { header: "Cmimi i shitjes", key: "salePrice", width: 12 },
+  { header: "Stok minimal", key: "minStock", width: 10 },
+  { header: "Stok", key: "stock", width: 10 },
   { header: "Branding", key: "branding", width: 15 },
-  { header: "Description", key: "description", width: 30 },
+  { header: "Pershkrim", key: "description", width: 30 },
 ];
 
 const IMPORT_SHEET_NAME = "Asete gjendje";

@@ -1,8 +1,10 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { api } from "../../lib/api";
 import Modal from "../Modal";
+import ImportResultPanel from "./ImportResultPanel";
 import {
   buttonPrimaryClasses,
+  buttonSecondaryClasses,
   cardClasses,
   errorTextClasses,
 } from "../../lib/ui";
@@ -29,6 +31,8 @@ const FIELDS = [
   { name: "purchasePrice", label: "Purchase price", type: "number" },
   { name: "salePrice", label: "Sale price", type: "number" },
   { name: "minStock", label: "Minimum stock", type: "number" },
+  { name: "stock", label: "Stock", type: "number" },
+  { name: "branding", label: "Branding" },
   { name: "description", label: "Description", type: "textarea" },
 ];
 
@@ -39,6 +43,10 @@ export default function ProductsTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [modalMode, setModalMode] = useState(null); // null | 'create' | { edit: product }
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const fileInputRef = useRef(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -99,26 +107,108 @@ export default function ProductsTab() {
     }
   }
 
+  // Fetched as a blob (not a plain <a href>) so the session cookie is
+  // guaranteed to be sent via credentials:'include', same as every other
+  // authenticated request in this app.
+  async function handleExport() {
+    setExporting(true);
+    setError("");
+    try {
+      const res = await fetch(api.fileUrl("/products/export"), {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`Export failed (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "products.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.message || "Failed to export products");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleImportFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file next time
+    if (!file) return;
+
+    setImporting(true);
+    setError("");
+    setImportResult(null);
+    try {
+      const result = await api.uploadFile("/products/import", file);
+      setImportResult(result);
+      await loadAll();
+    } catch (err) {
+      setError(err.message || "Failed to import products");
+    } finally {
+      setImporting(false);
+    }
+  }
+
   if (loading) {
     return <p className="text-body text-gray-500">Loading products…</p>;
   }
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h2 className="text-title text-gray-900">Products</h2>
-        <button
-          className={buttonPrimaryClasses}
-          onClick={() => setModalMode("create")}
-        >
-          Add product
-        </button>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            className={buttonSecondaryClasses}
+            onClick={handleExport}
+            disabled={exporting}
+          >
+            {exporting ? "Exporting…" : "Export to Excel"}
+          </button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx"
+            onChange={handleImportFile}
+            className="peer sr-only"
+            id="products-import-input"
+          />
+          <label
+            htmlFor="products-import-input"
+            className={`${buttonSecondaryClasses} cursor-pointer peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent-800 ${
+              importing ? "opacity-50 pointer-events-none" : ""
+            }`}
+          >
+            {importing ? "Importing…" : "Import from Excel"}
+          </label>
+
+          <button
+            className={buttonPrimaryClasses}
+            onClick={() => setModalMode("create")}
+          >
+            Add product
+          </button>
+        </div>
       </div>
 
       {error && (
         <p role="alert" className={errorTextClasses}>
           {error}
         </p>
+      )}
+
+      {importResult && (
+        <ImportResultPanel
+          result={importResult}
+          onDismiss={() => setImportResult(null)}
+        />
       )}
 
       {products.length === 0 ? (
