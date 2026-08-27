@@ -16,11 +16,14 @@ const assetUnitsRoutes = require("./routes/assetUnits");
 
 const app = express();
 
+const allowedOrigins = (process.env.CLIENT_ORIGIN || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin:
-      process.env.CLIENT_ORIGIN ||
-      "https://desktop-hka5ljn.junco-salak.ts.net/",
+    origin: allowedOrigins,
     credentials: true,
   }),
 );
