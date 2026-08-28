@@ -11,27 +11,29 @@ export default function ImportResultPanel({ result, onDismiss }) {
   return (
     <div className={`${cardClasses} mb-4`}>
       <div className="flex items-start justify-between gap-4 mb-2">
-        <h3 className="text-body font-medium text-gray-900">Import results</h3>
+        <h3 className="text-body font-medium text-gray-900">
+          Rezultatet e importit
+        </h3>
         <button
           type="button"
           className={buttonSecondaryClasses}
           onClick={onDismiss}
         >
-          Dismiss
+          Mbyll
         </button>
       </div>
 
       <p className="text-body text-gray-700 mb-2">
-        <span className="font-medium text-status-success">{created}</span>{" "}
-        created, <span className="font-medium text-accent-600">{updated}</span>{" "}
-        updated
+        <span className="font-medium text-status-success">{created}</span> të
+        krijuar, <span className="font-medium text-accent-600">{updated}</span>{" "}
+        të përditësuar
         {skipped.length > 0 && (
           <>
             ,{" "}
             <span className="font-medium text-status-danger">
               {skipped.length}
             </span>{" "}
-            skipped
+            të anashkaluar
           </>
         )}
         .
@@ -46,13 +48,13 @@ export default function ImportResultPanel({ result, onDismiss }) {
                   scope="col"
                   className="px-3 py-1.5 text-meta font-medium text-gray-500"
                 >
-                  Row
+                  Rreshti
                 </th>
                 <th
                   scope="col"
                   className="px-3 py-1.5 text-meta font-medium text-gray-500"
                 >
-                  Reason
+                  Arsyeja
                 </th>
               </tr>
             </thead>

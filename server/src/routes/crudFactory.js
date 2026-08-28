@@ -6,10 +6,12 @@ const express = require("express");
  * @param {Object} opts
  * @param {string[]} opts.requiredFields - fields that must be present on create
  * @param {string} [opts.populate] - space-separated field(s) to populate on list/get
+ * @param {(body: object) => Promise<object>} [opts.beforeCreate] - async hook to mutate/augment
+ *   the request body before Model.create() is called (e.g. auto-assigning a generated field)
  */
 function crudFactory(Model, opts = {}) {
   const router = express.Router();
-  const { requiredFields = [], populate = "" } = opts;
+  const { requiredFields = [], populate = "", beforeCreate } = opts;
 
   // GET / - list all
   router.get("/", async (req, res) => {
@@ -48,7 +50,9 @@ function crudFactory(Model, opts = {}) {
           .status(400)
           .json({ error: `Missing required field(s): ${missing.join(", ")}` });
       }
-      const doc = await Model.create(req.body);
+      const doc = await Model.create(
+        beforeCreate ? await beforeCreate(req.body) : req.body,
+      );
       res.status(201).json(doc);
     } catch (err) {
       res.status(400).json({ error: err.message });
