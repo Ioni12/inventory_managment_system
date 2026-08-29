@@ -3,7 +3,6 @@ import { api } from "../../lib/api";
 import Modal from "../Modal";
 import ImportResultPanel from "./ImportResultPanel";
 import ProductTable from "./products/ProductTable";
-import ProductDetailModal from "./products/ProductDetailModal";
 import ProductImportExport from "./products/ProductImportExport";
 import {
   buildProductFields,
@@ -11,14 +10,14 @@ import {
 } from "./products/productFields";
 import { buttonPrimaryClasses, errorTextClasses } from "../../lib/ui";
 
-export default function ProductsTab() {
+export default function ProductsTab({ searchQuery = "" }) {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [modalMode, setModalMode] = useState(null); // null | 'create' | { edit: product }
-  const [detailProduct, setDetailProduct] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
@@ -27,14 +26,16 @@ export default function ProductsTab() {
     setLoading(true);
     setError("");
     try {
-      const [prods, cats, sups] = await Promise.all([
+      const [prods, cats, sups, emps] = await Promise.all([
         api.get("/products"),
         api.get("/categories"),
         api.get("/suppliers"),
+        api.get("/employees"),
       ]);
       setProducts(prods);
       setCategories(cats);
       setSuppliers(sups);
+      setEmployees(emps);
     } catch (err) {
       setError(err.message || "Ngarkimi i produkteve dështoi");
     } finally {
@@ -58,7 +59,6 @@ export default function ProductsTab() {
     const { assetId, ...payload } = values;
     await api.put(`/products/${id}`, payload);
     setModalMode(null);
-    setDetailProduct(null);
     await loadAll();
   }
 
@@ -69,7 +69,6 @@ export default function ProductsTab() {
       return;
     try {
       await api.delete(`/products/${id}`);
-      setDetailProduct(null);
       await loadAll();
     } catch (err) {
       setError(err.message || "Fshirja e produktit dështoi");
@@ -122,20 +121,60 @@ export default function ProductsTab() {
     }
   }
 
-  // Rule #4: one-click status change without opening the full edit form.
-  async function handleQuickStatus(product, newStatus) {
-    try {
-      await api.put(`/products/${product._id}`, { status: newStatus });
-      await loadAll();
-      setDetailProduct((prev) =>
-        prev && prev._id === product._id
-          ? { ...prev, status: newStatus }
-          : prev,
-      );
-    } catch (err) {
-      setError(err.message || "Ndryshimi i statusit dështoi");
-    }
+  // --- Group actions: each is a distinct backend operation, not a
+  // generic "edit group" call. All require productId in the URL; body
+  // shapes match the 5 endpoints exactly. Errors surface inline rather
+  // than silently failing, since e.g. "moved more units than available"
+  // is a real, expected failure mode the user needs to see.
+  function groupActionError(fallback) {
+    return (err) => setError(err.message || fallback);
   }
+
+  function groupActionsFor(productId) {
+    return {
+      onAssign: (body) =>
+        api
+          .post(`/products/${productId}/groups/assign`, body)
+          .then(loadAll)
+          .catch(groupActionError("Caktimi dështoi")),
+      onReturn: (body) =>
+        api
+          .post(`/products/${productId}/groups/return`, body)
+          .then(loadAll)
+          .catch(groupActionError("Kthimi në magazinë dështoi")),
+      onRepair: (body) =>
+        api
+          .post(`/products/${productId}/groups/repair`, body)
+          .then(loadAll)
+          .catch(groupActionError("Dërgimi në riparim dështoi")),
+      onReturnFromRepair: (body) =>
+        api
+          .post(`/products/${productId}/groups/return-from-repair`, body)
+          .then(loadAll)
+          .catch(groupActionError("Kthimi nga riparimi dështoi")),
+      onDecommission: (body) =>
+        api
+          .post(`/products/${productId}/groups/decommission`, body)
+          .then(loadAll)
+          .catch(groupActionError("Nxjerrja jashtë përdorimit dështoi")),
+      onDeleteGroup: (groupId) =>
+        api
+          .delete(`/products/${productId}/groups/${groupId}`)
+          .then(loadAll)
+          .catch(groupActionError("Fshirja e grupit dështoi")),
+    };
+  }
+
+  // Rule #8: typo-tolerant global search — client-side, every keystroke,
+  // across Asset ID, product name, and branding.
+  const query = searchQuery.trim().toLowerCase();
+  const filteredProducts = query
+    ? products.filter((p) =>
+        [p.assetId, p.name, p.branding]
+          .filter(Boolean)
+          .some((field) => field.toLowerCase().includes(query)),
+      )
+    : products;
 
   if (loading) {
     return <p className="text-body text-gray-500">Duke ngarkuar produktet…</p>;
@@ -177,8 +216,18 @@ export default function ProductsTab() {
 
       {products.length === 0 ? (
         <p className="text-body text-gray-500">Ende nuk ka produkte.</p>
+      ) : filteredProducts.length === 0 ? (
+        <p className="text-body text-gray-500">
+          Asnjë produkt nuk përputhet me "{searchQuery}".
+        </p>
       ) : (
-        <ProductTable products={products} onView={setDetailProduct} />
+        <ProductTable
+          products={filteredProducts}
+          employees={employees}
+          onEdit={(p) => setModalMode({ edit: p })}
+          onDelete={handleDelete}
+          groupActionsFor={groupActionsFor}
+        />
       )}
 
       {modalMode === "create" && (
@@ -204,16 +253,6 @@ export default function ProductsTab() {
           onSubmit={(values) => handleEdit(modalMode.edit._id, values)}
           onClose={() => setModalMode(null)}
           submitLabel="Ruaj"
-        />
-      )}
-
-      {detailProduct && (
-        <ProductDetailModal
-          product={detailProduct}
-          onClose={() => setDetailProduct(null)}
-          onEdit={(p) => setModalMode({ edit: p })}
-          onDelete={handleDelete}
-          onQuickStatus={handleQuickStatus}
         />
       )}
     </div>

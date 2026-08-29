@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import ListInput from "./ListInput";
 import {
   inputClasses,
   labelClasses,
@@ -11,11 +12,14 @@ import {
 
 /**
  * Generic modal driven by a field-config array. Every add/edit form in the
- * app (Products, Categories, Suppliers, Employees, Locations, AssetUnits)
- * should render through this, not hand-roll its own <form>.
+ * app (Products, Categories, Suppliers, Employees) should render through
+ * this, not hand-roll its own <form>.
  *
- * fields: [{ name, label, type: 'text'|'number'|'date'|'select'|'textarea',
- *            options?: [{value,label}], required? }]
+ * fields: [{ name, label, type: 'text'|'number'|'date'|'select'|'textarea'|'list',
+ *            options?: [{value,label}], required?, itemType?, addLabel? }]
+ * `list` fields hold an array of strings (e.g. Employee.emails) and render
+ * as add/remove text inputs via ListInput. `itemType`/`addLabel` are
+ * passed through to ListInput; `options` is ignored for this type.
  * initialValues: object to prefill (edit mode) — pass {} for create mode
  */
 export default function Modal({
@@ -67,7 +71,15 @@ export default function Modal({
     setError("");
     setSubmitting(true);
     try {
-      await onSubmit(values);
+      const payload = { ...values };
+      for (const field of fields) {
+        if (field.type === "list") {
+          payload[field.name] = (payload[field.name] ?? []).filter(
+            (item) => item.trim() !== "",
+          );
+        }
+      }
+      await onSubmit(payload);
     } catch (err) {
       setError(err.message || "Something went wrong");
     } finally {
@@ -126,6 +138,15 @@ export default function Modal({
                   value={values[field.name] ?? ""}
                   onChange={(e) => handleChange(field.name, e.target.value)}
                   className={inputClasses}
+                />
+              ) : field.type === "list" ? (
+                <ListInput
+                  id={field.name}
+                  value={values[field.name]}
+                  onChange={(next) => handleChange(field.name, next)}
+                  itemType={field.itemType}
+                  addLabel={field.addLabel}
+                  firstFieldRef={i === 0 ? firstFieldRef : undefined}
                 />
               ) : (
                 <input

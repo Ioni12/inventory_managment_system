@@ -1,8 +1,7 @@
-// Maps Product.status values to color + Albanian label, matching the
-// exact colors specified for this entity: Ne magazine=neutral gray,
-// Ne perdorim=green, Ne riparim=amber, Jashte perdorimit=red. Kept
-// separate from the AssetUnit StatusBadge — different enum, different
-// domain, don't conflate the two even though the visual pattern matches.
+// Maps a group's status value to color + Albanian label. Status now lives
+// on groups (a Product batch has no single status of its own), but the
+// same 4-value enum and exact colors apply: Ne magazine=neutral gray,
+// Ne perdorim=green, Ne riparim=amber, Jashte perdorimit=red.
 const PRODUCT_STATUS_MAP = {
   "Ne magazine": {
     label: "Në magazinë",

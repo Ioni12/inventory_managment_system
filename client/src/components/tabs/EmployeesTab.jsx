@@ -8,17 +8,28 @@ import {
 } from "../../lib/ui";
 
 const FIELDS = [
-  { name: "firstName", label: "First name", required: true },
-  { name: "lastName", label: "Last name", required: true },
+  { name: "firstName", label: "Emri", required: true },
+  { name: "lastName", label: "Mbiemri", required: true },
   { name: "email", label: "Email", type: "email", required: true },
   {
+    name: "emails",
+    label: "Email shtesë",
+    type: "list",
+    itemType: "email",
+    addLabel: "+ Shto email",
+  },
+  { name: "company", label: "Kompania" },
+  { name: "department", label: "Departamenti" },
+  { name: "phone", label: "Telefoni" },
+  { name: "badgeQr", label: "Badge / QR Code" },
+  {
     name: "role",
-    label: "Role",
+    label: "Roli",
     type: "select",
     required: true,
     options: [
       { value: "admin", label: "Admin" },
-      { value: "user", label: "User" },
+      { value: "user", label: "Përdorues" },
     ],
   },
 ];
@@ -35,7 +46,7 @@ export default function EmployeesTab() {
     try {
       setEmployees(await api.get("/employees"));
     } catch (err) {
-      setError(err.message || "Failed to load employees");
+      setError(err.message || "Ngarkimi i punonjësve dështoi");
     } finally {
       setLoading(false);
     }
@@ -58,27 +69,30 @@ export default function EmployeesTab() {
   }
 
   async function handleDelete(id) {
-    if (!window.confirm("Delete this employee? This cannot be undone.")) return;
+    if (
+      !window.confirm("Të fshihet ky punonjës? Ky veprim nuk mund të kthehet.")
+    )
+      return;
     try {
       await api.delete(`/employees/${id}`);
       await load();
     } catch (err) {
-      setError(err.message || "Failed to delete employee");
+      setError(err.message || "Fshirja e punonjësit dështoi");
     }
   }
 
   if (loading)
-    return <p className="text-body text-gray-500">Loading employees…</p>;
+    return <p className="text-body text-gray-500">Duke ngarkuar punonjësit…</p>;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-title text-gray-900">Employees</h2>
+        <h2 className="text-title text-gray-900">Punonjësit</h2>
         <button
           className={buttonPrimaryClasses}
           onClick={() => setModalMode("create")}
         >
-          Add employee
+          Shto punonjës
         </button>
       </div>
 
@@ -89,7 +103,7 @@ export default function EmployeesTab() {
       )}
 
       {employees.length === 0 ? (
-        <p className="text-body text-gray-500">No employees yet.</p>
+        <p className="text-body text-gray-500">Ende nuk ka punonjës.</p>
       ) : (
         <div className={`${cardClasses} p-0 overflow-hidden`}>
           <table className="w-full text-left">
@@ -99,7 +113,7 @@ export default function EmployeesTab() {
                   scope="col"
                   className="px-4 py-2 text-meta font-medium text-gray-500"
                 >
-                  Name
+                  Emri
                 </th>
                 <th
                   scope="col"
@@ -111,10 +125,22 @@ export default function EmployeesTab() {
                   scope="col"
                   className="px-4 py-2 text-meta font-medium text-gray-500"
                 >
-                  Role
+                  Kompania
+                </th>
+                <th
+                  scope="col"
+                  className="px-4 py-2 text-meta font-medium text-gray-500"
+                >
+                  Departamenti
+                </th>
+                <th
+                  scope="col"
+                  className="px-4 py-2 text-meta font-medium text-gray-500"
+                >
+                  Roli
                 </th>
                 <th scope="col" className="px-4 py-2">
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">Veprime</span>
                 </th>
               </tr>
             </thead>
@@ -130,8 +156,14 @@ export default function EmployeesTab() {
                   <td className="px-4 py-2 text-body text-gray-600">
                     {e.email}
                   </td>
+                  <td className="px-4 py-2 text-body text-gray-600">
+                    {e.company || "—"}
+                  </td>
+                  <td className="px-4 py-2 text-body text-gray-600">
+                    {e.department || "—"}
+                  </td>
                   <td className="px-4 py-2 text-body text-gray-600 capitalize">
-                    {e.role}
+                    {e.role === "admin" ? "Admin" : "Përdorues"}
                   </td>
                   <td className="px-4 py-2 text-right">
                     <button
@@ -139,14 +171,14 @@ export default function EmployeesTab() {
                       className="text-meta text-accent-600 underline mr-3"
                       onClick={() => setModalMode({ edit: e })}
                     >
-                      Edit
+                      Ndrysho
                     </button>
                     <button
                       type="button"
                       className="text-meta text-status-danger underline"
                       onClick={() => handleDelete(e._id)}
                     >
-                      Delete
+                      Fshi
                     </button>
                   </td>
                 </tr>
@@ -158,23 +190,23 @@ export default function EmployeesTab() {
 
       {modalMode === "create" && (
         <Modal
-          title="Add employee"
+          title="Shto punonjës"
           fields={FIELDS}
           initialValues={{}}
           onSubmit={handleCreate}
           onClose={() => setModalMode(null)}
-          submitLabel="Add"
+          submitLabel="Shto"
         />
       )}
 
       {modalMode?.edit && (
         <Modal
-          title="Edit employee"
+          title="Ndrysho punonjësin"
           fields={FIELDS}
           initialValues={modalMode.edit}
           onSubmit={(values) => handleEdit(modalMode.edit._id, values)}
           onClose={() => setModalMode(null)}
-          submitLabel="Save"
+          submitLabel="Ruaj"
         />
       )}
     </div>

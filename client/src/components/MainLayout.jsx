@@ -5,7 +5,7 @@ import GlobalSearch from "./GlobalSearch";
 import ProductsTab from "./tabs/ProductsTab";
 import CatalogTab from "./tabs/CatalogTab";
 import EmployeesTab from "./tabs/EmployeesTab";
-import AssetsTab from "./tabs/AssetsTab";
+import NePerdorimTab from "./tabs/NePerdorimTab";
 
 export default function MainLayout() {
   const { user, logout } = useAuth();
@@ -60,10 +60,10 @@ export default function MainLayout() {
       <TabBar role={user.role} activeTab={activeTab} onChange={setActiveTab} />
 
       <main className="p-6">
-        {activeTab === "assets" ? (
-          <AssetsTab searchQuery={searchQuery} />
-        ) : activeTab === "products" ? (
-          <ProductsTab />
+        {activeTab === "products" ? (
+          <ProductsTab searchQuery={searchQuery} />
+        ) : activeTab === "ne-perdorim" ? (
+          <NePerdorimTab />
         ) : activeTab === "catalog" && user.role === "admin" ? (
           <CatalogTab />
         ) : activeTab === "employees" && user.role === "admin" ? (

@@ -1,18 +1,7 @@
-export const PRODUCT_STATUS_OPTIONS = [
-  { value: "Ne magazine", label: "Në magazinë" },
-  { value: "Ne perdorim", label: "Në përdorim" },
-  { value: "Ne riparim", label: "Në riparim" },
-  { value: "Jashte perdorimit", label: "Jashtë përdorimit" },
-];
-
-export const PRODUCT_CREATE_DEFAULTS = {
-  status: "Ne magazine",
-  unit: "piece",
-};
-
-// Deliberately excludes `assetId` — it's backend-generated and read-only
-// (shown separately in the modal title / detail view), never rendered as
-// an editable Modal field so it can never be included in onSubmit(values).
+// Deliberately excludes `assetId` (backend-generated, read-only, shown in
+// the modal title instead) and any status/serial fields — those moved to
+// the group model. This config is for batch-level fields only: name,
+// category, branding, unit, supplier, purchase price, description.
 export const PRODUCT_FIELDS = [
   { name: "name", label: "Emri", required: true },
   {
@@ -22,9 +11,7 @@ export const PRODUCT_FIELDS = [
     required: true,
     options: [],
   }, // populated at render
-  { name: "serial", label: "Nr. Serial" },
   { name: "branding", label: "Branding" },
-  { name: "stock", label: "Stoku", type: "number" },
   { name: "unit", label: "Njësia" },
   {
     name: "supplier",
@@ -33,15 +20,12 @@ export const PRODUCT_FIELDS = [
     options: [],
   }, // populated at render
   { name: "purchasePrice", label: "Çmimi i blerjes", type: "number" },
-  {
-    name: "status",
-    label: "Statusi",
-    type: "select",
-    required: true,
-    options: PRODUCT_STATUS_OPTIONS,
-  },
   { name: "description", label: "Përshkrimi", type: "textarea" },
 ];
+
+export const PRODUCT_CREATE_DEFAULTS = {
+  unit: "piece",
+};
 
 // Fills in the live category/supplier options — kept as a function since it
 // depends on data loaded at render time, not static config.

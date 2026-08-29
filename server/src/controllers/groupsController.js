@@ -1,0 +1,176 @@
+const Product = require("../models/Product");
+const { moveUnits } = require("../utils/productGroups");
+
+async function loadProduct(req, res) {
+  const product = await Product.findById(req.params.productId);
+  if (!product) {
+    res.status(404).json({ error: "Product not found" });
+    return null;
+  }
+  return product;
+}
+
+// POST /api/products/:productId/groups/assign
+// body: { fromStatus, fromHolder, toHolder, quantity }
+// Assigns `quantity` units currently in `fromStatus`/`fromHolder` to `toHolder`.
+// Status stays the same by default unless caller also wants to flip it —
+// for a plain assignment, status is typically 'Ne magazine' -> 'Ne perdorim'.
+async function assignUnits(req, res) {
+  try {
+    const product = await loadProduct(req, res);
+    if (!product) return;
+
+    const { fromStatus, fromHolder, toHolder, quantity } = req.body;
+    if (!toHolder)
+      return res.status(400).json({ error: "toHolder is required" });
+
+    moveUnits(
+      product,
+      {
+        status: fromStatus || "Ne magazine",
+        currentHolder: fromHolder || null,
+      },
+      { status: "Ne perdorim", currentHolder: toHolder },
+      Number(quantity),
+    );
+
+    await product.save();
+    res.json(product);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+// POST /api/products/:productId/groups/return
+// body: { fromHolder, quantity }
+// Returns `quantity` units from a holder back to unassigned stock.
+async function returnUnits(req, res) {
+  try {
+    const product = await loadProduct(req, res);
+    if (!product) return;
+
+    const { fromHolder, quantity } = req.body;
+    if (!fromHolder)
+      return res.status(400).json({ error: "fromHolder is required" });
+
+    moveUnits(
+      product,
+      { status: "Ne perdorim", currentHolder: fromHolder },
+      { status: "Ne magazine", currentHolder: null },
+      Number(quantity),
+    );
+
+    await product.save();
+    res.json(product);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+// POST /api/products/:productId/groups/repair
+// body: { fromStatus, fromHolder, quantity }
+// Sends units to repair. currentHolder is left UNTOUCHED (rule #4) —
+// a unit in repair is still conceptually with its holder (or unassigned).
+async function sendToRepair(req, res) {
+  try {
+    const product = await loadProduct(req, res);
+    if (!product) return;
+
+    const { fromStatus, fromHolder, quantity } = req.body;
+
+    moveUnits(
+      product,
+      {
+        status: fromStatus || "Ne magazine",
+        currentHolder: fromHolder || null,
+      },
+      { status: "Ne riparim", currentHolder: fromHolder || null }, // holder unchanged
+      Number(quantity),
+    );
+
+    await product.save();
+    res.json(product);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+// POST /api/products/:productId/groups/return-from-repair
+// body: { toStatus, holder, quantity }
+// Returns units from repair back to a given status. holder unchanged throughout.
+async function returnFromRepair(req, res) {
+  try {
+    const product = await loadProduct(req, res);
+    if (!product) return;
+
+    const { toStatus, holder, quantity } = req.body;
+
+    moveUnits(
+      product,
+      { status: "Ne riparim", currentHolder: holder || null },
+      { status: toStatus || "Ne magazine", currentHolder: holder || null }, // holder unchanged
+      Number(quantity),
+    );
+
+    await product.save();
+    res.json(product);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+// POST /api/products/:productId/groups/decommission
+// body: { fromStatus, fromHolder, quantity }
+// Decommissions units: status -> Jashte perdorimit AND currentHolder -> null
+// (rule #4 — NOT symmetric with repair; a decommissioned unit isn't
+// coming back to anyone).
+async function decommissionUnits(req, res) {
+  try {
+    const product = await loadProduct(req, res);
+    if (!product) return;
+
+    const { fromStatus, fromHolder, quantity } = req.body;
+
+    moveUnits(
+      product,
+      {
+        status: fromStatus || "Ne magazine",
+        currentHolder: fromHolder || null,
+      },
+      { status: "Jashte perdorimit", currentHolder: null }, // holder cleared
+      Number(quantity),
+    );
+
+    await product.save();
+    res.json(product);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+// DELETE /api/products/:productId/groups/:groupId
+// Deletes a single group bucket outright (not a quantity move).
+async function deleteGroup(req, res) {
+  try {
+    const product = await loadProduct(req, res);
+    if (!product) return;
+
+    const group = product.groups.id(req.params.groupId);
+    if (!group) return res.status(404).json({ error: "Group not found" });
+
+    group.deleteOne();
+    await product.save();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+module.exports = {
+  assignUnits,
+  returnUnits,
+  sendToRepair,
+  returnFromRepair,
+  decommissionUnits,
+  deleteGroup,
+};

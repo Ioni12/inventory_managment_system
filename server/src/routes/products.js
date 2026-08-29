@@ -7,12 +7,15 @@ const {
   importProducts,
 } = require("../controllers/productsController");
 const {
-  addSerial,
-  updateSerial,
-  deleteSerial,
-  getAssignedSerials,
-} = require("../controllers/serialsController");
+  assignUnits,
+  returnUnits,
+  sendToRepair,
+  returnFromRepair,
+  decommissionUnits,
+  deleteGroup,
+} = require("../controllers/groupsController");
 const { ensureUniqueAssetId } = require("../utils/assetId");
+const { getNePerdorim } = require("../controllers/nePerdorimController");
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -21,11 +24,14 @@ const upload = multer({ storage: multer.memoryStorage() });
 // otherwise they'd be swallowed by the generic '/:id' pattern.
 router.get("/export", exportProducts);
 router.post("/import", upload.single("file"), importProducts);
-router.get("/assigned", getAssignedSerials);
+router.get("/ne-perdorim", getNePerdorim);
 
-router.post("/:productId/serials", addSerial);
-router.put("/:productId/serials/:serialId", updateSerial);
-router.delete("/:productId/serials/:serialId", deleteSerial);
+router.post("/:productId/groups/assign", assignUnits);
+router.post("/:productId/groups/return", returnUnits);
+router.post("/:productId/groups/repair", sendToRepair);
+router.post("/:productId/groups/return-from-repair", returnFromRepair);
+router.post("/:productId/groups/decommission", decommissionUnits);
+router.delete("/:productId/groups/:groupId", deleteGroup);
 
 router.use(
   "/",

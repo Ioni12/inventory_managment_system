@@ -4,6 +4,24 @@ const Category = require("../models/Category");
 const Supplier = require("../models/Supplier");
 const Employee = require("../models/Employee");
 const { isValidAssetId, ensureUniqueAssetId } = require("../utils/assetId");
+const {
+  findOrCreateGroup,
+  pruneEmptyGroups,
+} = require("../utils/productGroups");
+const { buildNePerdorimRows } = require("./nePerdorimController");
+
+const NE_PERDORIM_COLUMNS = [
+  { header: "Nr.", key: "nr", width: 6 },
+  { header: "Emer Mbiemer", key: "emerMbiemer", width: 22 },
+  { header: "Kompani", key: "kompani", width: 14 },
+  { header: "Departamenti", key: "departamenti", width: 16 },
+  { header: "Asset ID", key: "assetId", width: 18 },
+  { header: "Sasia", key: "sasia", width: 10 },
+  { header: "Email ADC", key: "emailADC", width: 22 },
+  { header: "Email Vodafone", key: "emailVodafone", width: 22 },
+  { header: "Nr. telefoni", key: "nrTelefoni", width: 15 },
+  { header: "Badge + QR Code", key: "badgeQr", width: 18 },
+];
 
 const STATUS_VALUES = [
   "Ne magazine",
@@ -23,8 +41,7 @@ const HEADER_FILL = "FF1F2937";
 const HEADER_FONT_COLOR = "FFFFFFFF";
 const STRIPE_FILL = "FFF9FAFB";
 
-// One row per serial (physical unit). Batch-level columns repeat across
-// every row that shares the same Asset ID.
+// One row per group (a status+holder bucket within a batch), not per unit.
 const EXPORT_COLUMNS = [
   { header: "Asset ID", key: "assetId", width: 18 },
   { header: "Kategoria", key: "categoryName", width: 16 },
@@ -34,8 +51,9 @@ const EXPORT_COLUMNS = [
   { header: "Furnitori", key: "supplierName", width: 16 },
   { header: "Cmimi i blerjes", key: "purchasePrice", width: 14 },
   { header: "Pershkrim (opsional)", key: "description", width: 26 },
-  { header: "Nr. Serial", key: "serial", width: 16 },
   { header: "Statusi", key: "status", width: 16 },
+  { header: "Mbajtesi", key: "holderName", width: 20 },
+  { header: "Sasia", key: "quantity", width: 10 },
 ];
 
 const IMPORT_SHEET_NAME = "Asete gjendje";
@@ -43,7 +61,9 @@ const IMPORT_SHEET_NAME = "Asete gjendje";
 // GET /api/products/export
 async function exportProducts(req, res) {
   try {
-    const products = await Product.find().populate("category supplier");
+    const products = await Product.find()
+      .populate("category supplier")
+      .populate("groups.currentHolder");
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Asete gjendje");
@@ -61,17 +81,18 @@ async function exportProducts(req, res) {
         description: p.description,
       };
 
-      if (p.serials.length === 0) {
-        // A batch with no units yet still gets one row, serial columns blank.
-        sheet.addRow({ ...batch, serial: "", status: "" });
+      if (p.groups.length === 0) {
+        sheet.addRow({ ...batch, status: "", holderName: "", quantity: 0 });
         return;
       }
 
-      p.serials.forEach((unit) => {
+      p.groups.forEach((g) => {
+        const holder = g.currentHolder;
         sheet.addRow({
           ...batch,
-          serial: unit.serial,
-          status: unit.status,
+          status: g.status,
+          holderName: holder ? `${holder.firstName} ${holder.lastName}` : "",
+          quantity: g.quantity,
         });
       });
     });
@@ -122,6 +143,39 @@ async function exportProducts(req, res) {
       }
     }
 
+    // --- Second sheet: "Ne Perdorim" (same derived query used by the
+    // GET /api/products/ne-perdorim endpoint — implemented once, rendered
+    // two ways, per spec). ---
+    const nePerdorimRows = await buildNePerdorimRows();
+    const npSheet = workbook.addWorksheet("Ne Perdorim");
+    npSheet.columns = NE_PERDORIM_COLUMNS;
+    nePerdorimRows.forEach((row) => npSheet.addRow(row));
+
+    const npHeaderRow = npSheet.getRow(1);
+    npHeaderRow.height = 22;
+    npHeaderRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: HEADER_FONT_COLOR }, size: 11 };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: HEADER_FILL },
+      };
+      cell.alignment = { vertical: "middle", horizontal: "left" };
+    });
+    npSheet.views = [{ state: "frozen", ySplit: 1 }];
+    for (let rowNum = 2; rowNum <= npSheet.rowCount; rowNum++) {
+      const row = npSheet.getRow(rowNum);
+      if (rowNum % 2 === 0) {
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: STRIPE_FILL },
+          };
+        });
+      }
+    }
+
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -157,8 +211,7 @@ function cellGetter(colIndex) {
 async function resolveCategory(name) {
   if (!name) return null;
   let category = await Category.findOne({ name: new RegExp(`^${name}$`, "i") });
-  if (!category)
-    category = await Category.create({ name, trackingType: "quantity" });
+  if (!category) category = await Category.create({ name });
   return category._id;
 }
 
@@ -169,9 +222,6 @@ async function resolveSupplier(name) {
   return supplier._id;
 }
 
-// Resolves a holder by full name (splits on first space) + optional email.
-// Auto-creates a bare-bones Employee if no match is found, same pattern as
-// Category/Supplier auto-create.
 async function resolveHolder(fullName, email) {
   if (!fullName) return null;
 
@@ -205,10 +255,10 @@ function resolveStatus(raw) {
 }
 
 // POST /api/products/import
-// Rows are grouped by Asset ID: multiple rows sharing one Asset ID become
-// one Product with multiple serial units. Blank Asset ID = a new batch,
-// generated fresh. Existing Asset ID = update that batch / add or update
-// one of its units, matched by Nr. Serial.
+// Rows are grouped by Asset ID into one Product; within that Product,
+// rows are merged into groups keyed by (status, currentHolder) using the
+// same findOrCreateGroup logic used at runtime (rule: import must use the
+// same merge-safety as live requests).
 async function importProducts(req, res) {
   if (!req.file) {
     return res
@@ -217,10 +267,7 @@ async function importProducts(req, res) {
   }
 
   const results = { created: 0, updated: 0, skipped: [] };
-  // Tracks Asset IDs newly generated in THIS import run, so multiple rows
-  // for the same brand-new batch (all with blank Asset ID) get merged
-  // instead of creating a separate Product per row.
-  const newBatchByKey = new Map(); // key: `${name}|${category}` -> assetId
+  const newBatchByKey = new Map(); // `${name}|${category}` -> assetId, for this run only
 
   try {
     const workbook = new ExcelJS.Workbook();
@@ -231,11 +278,12 @@ async function importProducts(req, res) {
     const colIndex = buildColumnIndex(sheet);
     const get = cellGetter(colIndex);
 
+    const touchedProductIds = new Set();
+
     for (let rowNum = 2; rowNum <= sheet.rowCount; rowNum++) {
       const row = sheet.getRow(rowNum);
       const name = get(row, "Marka/modeli") || get(row, "Name");
       const rawAssetId = get(row, "Asset ID");
-      const serialNo = get(row, "Nr. Serial") || get(row, "Serial");
 
       if (!name) {
         results.skipped.push({ row: rowNum, reason: "Missing product name" });
@@ -260,26 +308,38 @@ async function importProducts(req, res) {
         : null;
 
       const statusRaw = get(row, "Statusi") || get(row, "Status");
-      let status;
+      let status = "Ne magazine";
       if (statusRaw) {
-        status = resolveStatus(statusRaw);
-        if (!status) {
+        const resolved = resolveStatus(statusRaw);
+        if (!resolved) {
           results.skipped.push({
             row: rowNum,
             reason: `Invalid Statusi value "${statusRaw}" (must be one of: ${STATUS_VALUES.join(", ")})`,
           });
           continue;
         }
+        status = resolved;
       }
 
-      const holderName = get(row, "Emer Mbiemer");
+      const holderName = get(row, "Mbajtesi") || get(row, "Emer Mbiemer");
       const holderEmail = get(row, "Email");
       const holderId = holderName
         ? await resolveHolder(holderName, holderEmail)
         : null;
 
-      // Batch-level fields, only set if the row actually has a value
-      // (never overwrite existing batch data with a blank cell).
+      const quantityRaw = get(row, "Sasia") || get(row, "Quantity");
+      const quantity =
+        quantityRaw !== undefined && quantityRaw !== ""
+          ? Number(quantityRaw)
+          : 1;
+      if (!quantity || quantity <= 0) {
+        results.skipped.push({
+          row: rowNum,
+          reason: "Sasia must be a positive number",
+        });
+        continue;
+      }
+
       const batchFields = {};
       if (categoryId) batchFields.category = categoryId;
       if (supplierId) batchFields.supplier = supplierId;
@@ -309,8 +369,6 @@ async function importProducts(req, res) {
         }
         Object.assign(product, batchFields);
       } else {
-        // Blank Asset ID: reuse a batch created earlier in THIS import if
-        // the name+category matches, otherwise start a brand-new batch.
         const key = `${name.toLowerCase()}|${categoryId}`;
         const existingNewAssetId = newBatchByKey.get(key);
 
@@ -335,43 +393,18 @@ async function importProducts(req, res) {
         }
       }
 
-      // Apply the serial (unit-level) part of this row, if any.
-      if (serialNo) {
-        let unitDoc = product.serials.find(
-          (s) => s.serial.toLowerCase() === serialNo.toLowerCase(),
-        );
-        if (unitDoc) {
-          if (status) unitDoc.status = status;
-          if (
-            holderId &&
-            String(unitDoc.currentHolder || "") !== String(holderId)
-          ) {
-            const openEntry = unitDoc.history.find((h) => !h.returnedDate);
-            if (openEntry) openEntry.returnedDate = new Date();
-            unitDoc.history.push({
-              employee: holderId,
-              assignedDate: new Date(),
-            });
-            unitDoc.currentHolder = holderId;
-          }
-        } else {
-          const newUnit = { serial: serialNo, status: status || "Ne magazine" };
-          if (holderId) {
-            newUnit.currentHolder = holderId;
-            newUnit.history = [
-              { employee: holderId, assignedDate: new Date() },
-            ];
-          }
-          product.serials.push(newUnit);
-        }
-      }
+      // Merge this row's units into the matching group, same rule as live requests.
+      const group = findOrCreateGroup(product, status, holderId);
+      group.quantity += quantity;
+      pruneEmptyGroups(product);
 
       const isNewProduct = product.isNew;
       await product.save();
-      if (isNewProduct) {
-        results.created += 1;
-      } else {
-        results.updated += 1;
+
+      if (!touchedProductIds.has(String(product._id))) {
+        touchedProductIds.add(String(product._id));
+        if (isNewProduct) results.created += 1;
+        else results.updated += 1;
       }
     }
 

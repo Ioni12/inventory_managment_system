@@ -7,23 +7,10 @@ const STATUS_VALUES = [
   "Jashte perdorimit",
 ];
 
-// One entry per past-or-current assignment of a specific serial to an employee.
-const historyEntrySchema = new mongoose.Schema(
-  {
-    employee: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Employee",
-      required: true,
-    },
-    assignedDate: { type: Date, default: Date.now },
-    returnedDate: { type: Date, default: null },
-  },
-  { _id: false },
-);
-
-// One entry per physical unit within a Product batch.
-const serialSchema = new mongoose.Schema({
-  serial: { type: String, required: true, trim: true },
+// One entry per distinct (status, currentHolder) combination in the batch.
+// Two units sharing both values live in the same group, represented by quantity.
+const groupSchema = new mongoose.Schema({
+  quantity: { type: Number, required: true, min: 0 },
   status: {
     type: String,
     enum: STATUS_VALUES,
@@ -34,7 +21,6 @@ const serialSchema = new mongoose.Schema({
     ref: "Employee",
     default: null,
   },
-  history: { type: [historyEntrySchema], default: [] },
 });
 
 const productSchema = new mongoose.Schema(
@@ -57,20 +43,22 @@ const productSchema = new mongoose.Schema(
     supplier: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier" },
     purchasePrice: { type: Number, default: 0 },
     description: { type: String, default: "" },
-    serials: { type: [serialSchema], default: [] },
+    groups: { type: [groupSchema], default: [] },
   },
   { timestamps: true },
 );
 
-// stock is derived from how many serials exist in the batch — not stored
-// separately, so it can never drift out of sync with the actual serial list.
+// stock = total units on the books across ALL groups, including
+// decommissioned ones (they still count until the group is deleted).
 productSchema.virtual("stock").get(function () {
-  return this.serials.length;
+  return this.groups.reduce((sum, g) => sum + g.quantity, 0);
 });
 
-// availableStock = units not currently assigned to anyone.
+// availableStock = units sitting in stock, unassigned, usable.
 productSchema.virtual("availableStock").get(function () {
-  return this.serials.filter((s) => !s.currentHolder).length;
+  return this.groups
+    .filter((g) => g.status === "Ne magazine")
+    .reduce((sum, g) => sum + g.quantity, 0);
 });
 
 productSchema.set("toJSON", { virtuals: true });
