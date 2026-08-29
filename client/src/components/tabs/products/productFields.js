@@ -1,7 +1,20 @@
+export const PRODUCT_STATUS_OPTIONS = [
+  { value: "Ne magazine", label: "Në magazinë" },
+  { value: "Ne perdorim", label: "Në përdorim" },
+  { value: "Ne riparim", label: "Në riparim" },
+  { value: "Jashte perdorimit", label: "Jashtë përdorimit" },
+];
+
+export const PRODUCT_CREATE_DEFAULTS = {
+  status: "Ne magazine",
+  unit: "piece",
+};
+
+// Deliberately excludes `assetId` — it's backend-generated and read-only
+// (shown separately in the modal title / detail view), never rendered as
+// an editable Modal field so it can never be included in onSubmit(values).
 export const PRODUCT_FIELDS = [
   { name: "name", label: "Emri", required: true },
-  { name: "type", label: "Lloji", required: true },
-  { name: "sku", label: "SKU", required: true },
   {
     name: "category",
     label: "Kategoria",
@@ -9,19 +22,24 @@ export const PRODUCT_FIELDS = [
     required: true,
     options: [],
   }, // populated at render
+  { name: "serial", label: "Nr. Serial" },
+  { name: "branding", label: "Branding" },
+  { name: "stock", label: "Stoku", type: "number" },
+  { name: "unit", label: "Njësia" },
   {
     name: "supplier",
     label: "Furnitori",
     type: "select",
-    required: true,
     options: [],
   }, // populated at render
-  { name: "unit", label: "Njësia", required: true },
   { name: "purchasePrice", label: "Çmimi i blerjes", type: "number" },
-  { name: "salePrice", label: "Çmimi i shitjes", type: "number" },
-  { name: "minStock", label: "Stoku minimal", type: "number" },
-  { name: "stock", label: "Stoku", type: "number" },
-  { name: "branding", label: "Branding" },
+  {
+    name: "status",
+    label: "Statusi",
+    type: "select",
+    required: true,
+    options: PRODUCT_STATUS_OPTIONS,
+  },
   { name: "description", label: "Përshkrimi", type: "textarea" },
 ];
 

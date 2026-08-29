@@ -3,8 +3,12 @@ import { api } from "../../lib/api";
 import Modal from "../Modal";
 import ImportResultPanel from "./ImportResultPanel";
 import ProductTable from "./products/ProductTable";
+import ProductDetailModal from "./products/ProductDetailModal";
 import ProductImportExport from "./products/ProductImportExport";
-import { buildProductFields } from "./products/productFields";
+import {
+  buildProductFields,
+  PRODUCT_CREATE_DEFAULTS,
+} from "./products/productFields";
 import { buttonPrimaryClasses, errorTextClasses } from "../../lib/ui";
 
 export default function ProductsTab() {
@@ -14,6 +18,7 @@ export default function ProductsTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [modalMode, setModalMode] = useState(null); // null | 'create' | { edit: product }
+  const [detailProduct, setDetailProduct] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
@@ -50,8 +55,10 @@ export default function ProductsTab() {
   }
 
   async function handleEdit(id, values) {
-    await api.put(`/products/${id}`, values);
+    const { assetId, ...payload } = values;
+    await api.put(`/products/${id}`, payload);
     setModalMode(null);
+    setDetailProduct(null);
     await loadAll();
   }
 
@@ -62,6 +69,7 @@ export default function ProductsTab() {
       return;
     try {
       await api.delete(`/products/${id}`);
+      setDetailProduct(null);
       await loadAll();
     } catch (err) {
       setError(err.message || "Fshirja e produktit dështoi");
@@ -114,6 +122,21 @@ export default function ProductsTab() {
     }
   }
 
+  // Rule #4: one-click status change without opening the full edit form.
+  async function handleQuickStatus(product, newStatus) {
+    try {
+      await api.put(`/products/${product._id}`, { status: newStatus });
+      await loadAll();
+      setDetailProduct((prev) =>
+        prev && prev._id === product._id
+          ? { ...prev, status: newStatus }
+          : prev,
+      );
+    } catch (err) {
+      setError(err.message || "Ndryshimi i statusit dështoi");
+    }
+  }
+
   if (loading) {
     return <p className="text-body text-gray-500">Duke ngarkuar produktet…</p>;
   }
@@ -155,18 +178,14 @@ export default function ProductsTab() {
       {products.length === 0 ? (
         <p className="text-body text-gray-500">Ende nuk ka produkte.</p>
       ) : (
-        <ProductTable
-          products={products}
-          onEdit={(p) => setModalMode({ edit: p })}
-          onDelete={handleDelete}
-        />
+        <ProductTable products={products} onView={setDetailProduct} />
       )}
 
       {modalMode === "create" && (
         <Modal
           title="Shto produkt"
           fields={fields}
-          initialValues={{}}
+          initialValues={PRODUCT_CREATE_DEFAULTS}
           onSubmit={handleCreate}
           onClose={() => setModalMode(null)}
           submitLabel="Shto"
@@ -175,7 +194,7 @@ export default function ProductsTab() {
 
       {modalMode?.edit && (
         <Modal
-          title="Ndrysho produktin"
+          title={`Ndrysho produktin · ${modalMode.edit.assetId}`}
           fields={fields}
           initialValues={{
             ...modalMode.edit,
@@ -185,6 +204,16 @@ export default function ProductsTab() {
           onSubmit={(values) => handleEdit(modalMode.edit._id, values)}
           onClose={() => setModalMode(null)}
           submitLabel="Ruaj"
+        />
+      )}
+
+      {detailProduct && (
+        <ProductDetailModal
+          product={detailProduct}
+          onClose={() => setDetailProduct(null)}
+          onEdit={(p) => setModalMode({ edit: p })}
+          onDelete={handleDelete}
+          onQuickStatus={handleQuickStatus}
         />
       )}
     </div>
