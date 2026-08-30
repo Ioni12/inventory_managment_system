@@ -19,11 +19,18 @@ export default {
           300: "#f37c7f",
           400: "#ee4448",
           500: "#ec2a2f",
-          600: "#e3141a", // primary accent — exact ADC brand red
+          600: "#e3141a", // primary accent — exact ADC brand red (buttons, borders — NOT for text on the new warm surfaces, see accent-700-text below)
           700: "#b61015",
           800: "#8d0c10",
           900: "#68090c",
         },
+        // Corrected brand-red variant for use as TEXT on the new warm
+        // off-white surfaces. accent-600 as text measured 4.33:1 against
+        // the new surface tones (fails WCAG AA at 4.5:1); this darker
+        // value measures 5.63:1. Use this for red text/links; keep
+        // accent-600 for solid button fills and borders, where its
+        // contrast against white text is unaffected by the surface change.
+        "accent-text": "#C01827",
         // Status colors — only used inside StatusBadge, never elsewhere as
         // decoration. Kept a visually distinct red family from `accent` so
         // a "decommissioned" badge is never confused with a primary action.
@@ -33,17 +40,22 @@ export default {
           warning: "#b45309", // in_repair
           danger: "#b91c1c", // decommissioned
         },
-        // Surface tones — subtle tonal separation between page background,
-        // resting cards, and sunken/hover states, instead of everything
-        // being flat white distinguished only by a 1px border. Use these
-        // in place of arbitrary gray-50/gray-100 picks so the depth system
-        // stays consistent app-wide.
+        // Surface tones — warm off-white palette (replacing the earlier
+        // cool-gray set) so the app reads less like a stock admin
+        // dashboard template and more like a considered internal tool.
+        // Still subtle tonal separation between page background, resting
+        // cards, and sunken/hover states — just warmer.
         surface: {
-          page: "#f8f9fb", // app background — a hair cooler than pure white
-          DEFAULT: "#ffffff", // card / modal / input surface
-          sunken: "#f1f2f5", // table header row, hover states, wells
-          border: "#e5e7eb", // hairline borders on top of surface tones
+          page: "#F7F4EF", // app background
+          DEFAULT: "#FFFDF9", // card / modal / input surface
+          sunken: "#F1EDE4", // table header row, hover states, wells
+          border: "#e5e7eb", // hairline borders on top of surface tones (unchanged — still reads fine against the warm tones)
         },
+        // Muted text color for meta/secondary copy (IDs, timestamps,
+        // helper text) on the new warm surfaces. The generic gray-500
+        // Tailwind default measured only 2.80:1 here — well under WCAG AA.
+        // This warmer, darker value measures 5.22:1.
+        muted: "#6F6555",
       },
       borderRadius: {
         app: "0.5rem", // 8px — the one radius value used on cards, buttons, inputs, modals

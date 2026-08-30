@@ -10,6 +10,7 @@ const authRoutes = require("./routes/auth");
 const categoriesRoutes = require("./routes/categories");
 const suppliersRoutes = require("./routes/suppliers");
 const productsRoutes = require("./routes/products");
+const nePerdorimRoutes = require("./routes/nePerdorim");
 const employeesRoutes = require("./routes/employees");
 const locationsRoutes = require("./routes/locations");
 const assetUnitsRoutes = require("./routes/assetUnits");
@@ -48,8 +49,14 @@ app.use(
 app.use("/api/auth", authRoutes);
 
 // Everything below requires a logged-in session
+// NOTE: /api/products/ne-perdorim must be mounted BEFORE /api/products —
+// Express matches app.use() by path prefix in registration order, so
+// mounting /api/products first would swallow /ne-perdorim requests into
+// productsRoutes, where the generic crudFactory's GET /:id route would
+// try (and fail) to cast "ne-perdorim" as a Mongo ObjectId, causing a 400.
 app.use("/api/categories", requireAuth, categoriesRoutes);
 app.use("/api/suppliers", requireAuth, suppliersRoutes);
+app.use("/api/products/ne-perdorim", requireAuth, nePerdorimRoutes);
 app.use("/api/products", requireAuth, productsRoutes);
 app.use("/api/employees", requireAuth, employeesRoutes);
 app.use("/api/locations", requireAuth, locationsRoutes);

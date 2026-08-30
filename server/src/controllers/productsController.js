@@ -9,6 +9,7 @@ const {
   pruneEmptyGroups,
 } = require("../utils/productGroups");
 const { buildNePerdorimRows } = require("./nePerdorimController");
+const { applyStandardSheetStyle } = require("../utils/excelStyle");
 
 const NE_PERDORIM_COLUMNS = [
   { header: "Nr.", key: "nr", width: 6 },
@@ -17,8 +18,7 @@ const NE_PERDORIM_COLUMNS = [
   { header: "Departamenti", key: "departamenti", width: 16 },
   { header: "Asset ID", key: "assetId", width: 18 },
   { header: "Sasia", key: "sasia", width: 10 },
-  { header: "Email ADC", key: "emailADC", width: 22 },
-  { header: "Email Vodafone", key: "emailVodafone", width: 22 },
+  { header: "Emails", key: "email", width: 34 },
   { header: "Nr. telefoni", key: "nrTelefoni", width: 15 },
   { header: "Badge + QR Code", key: "badgeQr", width: 18 },
 ];
@@ -36,10 +36,6 @@ const STATUS_COLORS = {
   "Ne riparim": "FFFEF3C7",
   "Jashte perdorimit": "FFFEE2E2",
 };
-
-const HEADER_FILL = "FF1F2937";
-const HEADER_FONT_COLOR = "FFFFFFFF";
-const STRIPE_FILL = "FFF9FAFB";
 
 // One row per group (a status+holder bucket within a batch), not per unit.
 const EXPORT_COLUMNS = [
@@ -97,51 +93,14 @@ async function exportProducts(req, res) {
       });
     });
 
-    // --- Styling ---
-    const headerRow = sheet.getRow(1);
-    headerRow.height = 22;
-    headerRow.eachCell((cell) => {
-      cell.font = { bold: true, color: { argb: HEADER_FONT_COLOR }, size: 11 };
-      cell.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: HEADER_FILL },
-      };
-      cell.alignment = { vertical: "middle", horizontal: "left" };
-    });
-    sheet.views = [{ state: "frozen", ySplit: 1 }];
-
     const statusColIndex =
       EXPORT_COLUMNS.findIndex((c) => c.key === "status") + 1;
 
-    for (let rowNum = 2; rowNum <= sheet.rowCount; rowNum++) {
-      const row = sheet.getRow(rowNum);
-      const isStripe = rowNum % 2 === 0;
-
-      row.eachCell({ includeEmpty: true }, (cell) => {
-        cell.border = {
-          bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
-        };
-        if (isStripe) {
-          cell.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: STRIPE_FILL },
-          };
-        }
-      });
-
-      const statusCell = row.getCell(statusColIndex);
-      const statusColor = STATUS_COLORS[statusCell.value];
-      if (statusColor) {
-        statusCell.fill = {
-          type: "pattern",
-          pattern: "solid",
-          fgColor: { argb: statusColor },
-        };
-        statusCell.alignment = { horizontal: "center" };
-      }
-    }
+    applyStandardSheetStyle(sheet, {
+      withBorders: true,
+      statusColIndex,
+      statusColors: STATUS_COLORS,
+    });
 
     // --- Second sheet: "Ne Perdorim" (same derived query used by the
     // GET /api/products/ne-perdorim endpoint — implemented once, rendered
@@ -151,30 +110,7 @@ async function exportProducts(req, res) {
     npSheet.columns = NE_PERDORIM_COLUMNS;
     nePerdorimRows.forEach((row) => npSheet.addRow(row));
 
-    const npHeaderRow = npSheet.getRow(1);
-    npHeaderRow.height = 22;
-    npHeaderRow.eachCell((cell) => {
-      cell.font = { bold: true, color: { argb: HEADER_FONT_COLOR }, size: 11 };
-      cell.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: HEADER_FILL },
-      };
-      cell.alignment = { vertical: "middle", horizontal: "left" };
-    });
-    npSheet.views = [{ state: "frozen", ySplit: 1 }];
-    for (let rowNum = 2; rowNum <= npSheet.rowCount; rowNum++) {
-      const row = npSheet.getRow(rowNum);
-      if (rowNum % 2 === 0) {
-        row.eachCell({ includeEmpty: true }, (cell) => {
-          cell.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: STRIPE_FILL },
-          };
-        });
-      }
-    }
+    applyStandardSheetStyle(npSheet);
 
     res.setHeader(
       "Content-Type",

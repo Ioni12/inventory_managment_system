@@ -5,6 +5,7 @@ export const TAB_CONFIG = [
   { id: "products", label: "Products", roles: ["admin", "user"] },
   { id: "ne-perdorim", label: "Ne Perdorim", roles: ["admin", "user"] },
   { id: "catalog", label: "Catalog", roles: ["admin"] },
+  { id: "furnitore", label: "Furnitore", roles: ["admin"] },
   { id: "employees", label: "Employees", roles: ["admin"] },
 ];
 

@@ -1,7 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { api } from "../../lib/api";
 import NePerdorimRowActions from "./NePerdorimRowActions";
+import ProductImportExport from "./products/ProductImportExport";
 import { cardClasses, errorTextClasses } from "../../lib/ui";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 /**
  * Editable view of who currently holds what. Reassign/return reuse the
@@ -17,6 +20,9 @@ export default function NePerdorimTab() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -38,6 +44,61 @@ export default function NePerdorimTab() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Same fetch-a-blob pattern as ProductsTab's export handler — swap for
+  // an api.js helper if one already exists there (e.g. api.downloadFile).
+  async function handleExport() {
+    setExporting(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/products/ne-perdorim/export`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Eksportimi dështoi");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ne-perdorim.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.message || "Eksportimi dështoi");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  // Same multipart-upload pattern as ProductsTab's import handler — swap
+  // for an api.js helper (e.g. api.uploadFile) if one already exists.
+  async function handleImportFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    setError("");
+    setImportResult(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API_BASE}/products/ne-perdorim/import`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Importi dështoi");
+      setImportResult(data);
+      await load();
+    } catch (err) {
+      setError(err.message || "Importi dështoi");
+    } finally {
+      setImporting(false);
+      e.target.value = "";
+    }
+  }
 
   function actionError(fallback) {
     return (err) => setError(err.message || fallback);
@@ -64,7 +125,42 @@ export default function NePerdorimTab() {
 
   return (
     <div>
-      <h2 className="text-title text-gray-900 mb-4">Në Përdorim</h2>
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <h2 className="text-title text-gray-900">Në Përdorim</h2>
+        <ProductImportExport
+          exporting={exporting}
+          importing={importing}
+          onExport={handleExport}
+          onImportFile={handleImportFile}
+          inputId="ne-perdorim-import-input"
+        />
+      </div>
+
+      {importResult && (
+        <div className={`${cardClasses} mb-4 p-4`}>
+          <p className="text-body text-gray-900 mb-1">
+            Punonjës: {importResult.employeesCreated} krijuar,{" "}
+            {importResult.employeesUpdated} përditësuar
+          </p>
+          <p className="text-body text-gray-900 mb-2">
+            Caktime të reja: {importResult.assignmentsCreated}
+          </p>
+          {importResult.skipped?.length > 0 && (
+            <div>
+              <p className="text-meta font-medium text-gray-500 mb-1">
+                Rreshta të anashkaluar ({importResult.skipped.length}):
+              </p>
+              <ul className="text-meta text-gray-600 list-disc pl-5 space-y-0.5">
+                {importResult.skipped.map((s, i) => (
+                  <li key={i}>
+                    Rreshti {s.row}: {s.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && (
         <p role="alert" className={errorTextClasses}>

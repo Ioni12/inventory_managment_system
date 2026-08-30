@@ -15,7 +15,6 @@ const {
   deleteGroup,
 } = require("../controllers/groupsController");
 const { ensureUniqueAssetId } = require("../utils/assetId");
-const { getNePerdorim } = require("../controllers/nePerdorimController");
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -24,7 +23,6 @@ const upload = multer({ storage: multer.memoryStorage() });
 // otherwise they'd be swallowed by the generic '/:id' pattern.
 router.get("/export", exportProducts);
 router.post("/import", upload.single("file"), importProducts);
-router.get("/ne-perdorim", getNePerdorim);
 
 router.post("/:productId/groups/assign", assignUnits);
 router.post("/:productId/groups/return", returnUnits);
@@ -37,10 +35,7 @@ router.use(
   "/",
   crudFactory(Product, {
     requiredFields: ["name", "category"],
-    populate: "category supplier",
-    // Every Product gets a generated assetId on creation, regardless of
-    // whether the client sent one (client-supplied assetId is ignored here
-    // on purpose — generation is the single source of truth for new items).
+    populate: "category supplier groups.currentHolder",
     beforeCreate: async (body) => ({
       ...body,
       assetId: await ensureUniqueAssetId(Product, "assetId"),

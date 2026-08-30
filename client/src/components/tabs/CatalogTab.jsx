@@ -22,26 +22,12 @@ const CATEGORY_FIELDS = [
   { name: "description", label: "Description", type: "textarea" },
 ];
 
-const SUPPLIER_FIELDS = [
-  { name: "name", label: "Name", required: true },
-  { name: "contactPerson", label: "Contact person" },
-  { name: "phone", label: "Phone" },
-  { name: "email", label: "Email", type: "email" },
-  { name: "notes", label: "Notes", type: "textarea" },
-];
-
 const ENTITIES = {
   categories: {
     label: "Categories",
     endpoint: "/categories",
     fields: CATEGORY_FIELDS,
     columns: ["name", "trackingType"],
-  },
-  suppliers: {
-    label: "Suppliers",
-    endpoint: "/suppliers",
-    fields: SUPPLIER_FIELDS,
-    columns: ["name", "contactPerson", "email"],
   },
 };
 
@@ -206,7 +192,6 @@ export default function CatalogTab() {
     <div>
       <h2 className="text-title text-gray-900 mb-6">Catalog</h2>
       <EntitySection config={ENTITIES.categories} />
-      <EntitySection config={ENTITIES.suppliers} />
     </div>
   );
 }
