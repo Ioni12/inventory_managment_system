@@ -7,6 +7,7 @@ import CatalogTab from "./tabs/CatalogTab";
 import EmployeesTab from "./tabs/EmployeesTab";
 import NePerdorimTab from "./tabs/NePerdorimTab";
 import FurnitoreTab from "./tabs/FurnitoreTab";
+import LogsTab from "./tabs/LogsTab";
 
 export default function MainLayout() {
   const { user, logout } = useAuth();
@@ -69,6 +70,8 @@ export default function MainLayout() {
           <CatalogTab />
         ) : activeTab === "furnitore" && user.role === "admin" ? (
           <FurnitoreTab />
+        ) : activeTab === "logs" && user.role === "admin" ? (
+          <LogsTab />
         ) : activeTab === "employees" && user.role === "admin" ? (
           <EmployeesTab />
         ) : null}

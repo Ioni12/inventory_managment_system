@@ -6,8 +6,13 @@ const Category = require("./models/Category");
 const Supplier = require("./models/Supplier");
 const Product = require("./models/Product");
 const Employee = require("./models/Employee");
-const Location = require("./models/Location");
-const AssetUnit = require("./models/AssetUnit");
+const { ensureUniqueAssetId } = require("./utils/assetId");
+
+// NOTE: Location and AssetUnit are intentionally NOT seeded here.
+// AssetUnit is fully deprecated (per-serial tracking was dropped in
+// favor of Product.groups[]) and Location is orphaned (not referenced
+// by Product or anything else) — see the project handoff doc's Open
+// Items. Seeding either would just create dead data.
 
 async function seed() {
   await connectDB();
@@ -18,23 +23,13 @@ async function seed() {
     Supplier.deleteMany({}),
     Product.deleteMany({}),
     Employee.deleteMany({}),
-    Location.deleteMany({}),
-    AssetUnit.deleteMany({}),
   ]);
 
   console.log("Seeding categories...");
   const [laptops, phones, accessories] = await Category.create([
-    { name: "Laptops", trackingType: "serial", description: "Company laptops" },
-    {
-      name: "Phones",
-      trackingType: "serial",
-      description: "Company mobile phones",
-    },
-    {
-      name: "Accessories",
-      trackingType: "quantity",
-      description: "Cables, mice, chargers",
-    },
+    { name: "Laptops", description: "Company laptops" },
+    { name: "Phones", description: "Company mobile phones" },
+    { name: "Accessories", description: "Cables, mice, chargers" },
   ]);
 
   console.log("Seeding suppliers...");
@@ -48,101 +43,81 @@ async function seed() {
     },
   ]);
 
-  console.log("Seeding locations...");
-  const [mainOffice, warehouse] = await Location.create([
-    { name: "Main Office" },
-    { name: "Warehouse" },
-  ]);
-
   console.log("Seeding employees...");
-  const passwordHash = await bcrypt.hash("Admin123!", 10);
+  const adminPasswordHash = await bcrypt.hash("Admin123!", 10);
+  const employeePasswordHash = await bcrypt.hash("Employee123!", 10);
   const [admin, staff] = await Employee.create([
     {
       firstName: "Esmeralda",
       lastName: "Osmani",
       email: "admin@adc.local",
-      passwordHash,
+      passwordHash: adminPasswordHash,
       role: "admin",
+      company: "ADC",
+      department: "IT",
     },
     {
       firstName: "Test",
       lastName: "Employee",
       email: "employee@adc.local",
-      passwordHash: await bcrypt.hash("Employee123!", 10),
+      passwordHash: employeePasswordHash,
       role: "user",
+      company: "ADC",
+      department: "Operations",
     },
   ]);
 
   console.log("Seeding products...");
-  const [thinkpad, iphone] = await Product.create([
-    {
-      name: "ThinkPad T14",
-      type: "Laptop",
-      sku: "LT-T14",
-      category: laptops._id,
-      supplier: supplier._id,
-      unit: "piece",
-      purchasePrice: 850,
-      salePrice: 0,
-      minStock: 2,
-      description: '14" business laptop',
-    },
-    {
-      name: "iPhone 13",
-      type: "Phone",
-      sku: "PH-IP13",
-      category: phones._id,
-      supplier: supplier._id,
-      unit: "piece",
-      purchasePrice: 700,
-      salePrice: 0,
-      minStock: 1,
-      description: "Company mobile phone",
-    },
-  ]);
 
-  console.log("Seeding asset units...");
-  await AssetUnit.create([
-    {
-      product: thinkpad._id,
-      assetCode: "IT-0001",
-      serial: "SN-TP-0001",
-      status: "assigned",
-      condition: "good",
-      holderType: "employee",
-      holder: admin._id,
-      location: mainOffice._id,
-      purchaseDate: new Date("2025-01-15"),
-      warrantyUntil: new Date("2027-01-15"),
-      accessories: "Charger, sleeve",
-    },
-    {
-      product: thinkpad._id,
-      assetCode: "IT-0002",
-      serial: "SN-TP-0002",
-      status: "in_stock",
-      condition: "new",
-      holderType: "none",
-      location: warehouse._id,
-      purchaseDate: new Date("2025-06-01"),
-      warrantyUntil: new Date("2027-06-01"),
-    },
-    {
-      product: iphone._id,
-      assetCode: "IT-0003",
-      serial: "SN-IP-0001",
-      imei: "000000000000000",
-      status: "assigned",
-      condition: "good",
-      holderType: "employee",
-      holder: staff._id,
-      location: mainOffice._id,
-      purchaseDate: new Date("2025-03-10"),
-      warrantyUntil: new Date("2026-03-10"),
-    },
-  ]);
+  // ThinkPad: 1 unit in Ne magazine (unassigned), 1 unit assigned to admin.
+  const thinkpadAssetId = await ensureUniqueAssetId(Product, "assetId");
+  const thinkpad = await Product.create({
+    name: "ThinkPad T14",
+    assetId: thinkpadAssetId,
+    category: laptops._id,
+    supplier: supplier._id,
+    branding: "ADC",
+    unit: "piece",
+    purchasePrice: 850,
+    description: '14" business laptop',
+    groups: [
+      { quantity: 1, status: "Ne magazine", currentHolder: null },
+      { quantity: 1, status: "Ne perdorim", currentHolder: admin._id },
+    ],
+  });
+
+  // iPhone: 1 unit assigned to staff.
+  const iphoneAssetId = await ensureUniqueAssetId(Product, "assetId");
+  const iphone = await Product.create({
+    name: "iPhone 13",
+    assetId: iphoneAssetId,
+    category: phones._id,
+    supplier: supplier._id,
+    branding: "ADC",
+    unit: "piece",
+    purchasePrice: 700,
+    description: "Company mobile phone",
+    groups: [{ quantity: 1, status: "Ne perdorim", currentHolder: staff._id }],
+  });
+
+  // Mouse: pure accessory, all unassigned in warehouse stock.
+  const mouseAssetId = await ensureUniqueAssetId(Product, "assetId");
+  const mouse = await Product.create({
+    name: "Logitech M170 Mouse",
+    assetId: mouseAssetId,
+    category: accessories._id,
+    supplier: supplier._id,
+    branding: "ADC",
+    unit: "piece",
+    purchasePrice: 12,
+    description: "Wireless mouse",
+    groups: [{ quantity: 10, status: "Ne magazine", currentHolder: null }],
+  });
 
   console.log("Seed complete.");
+  console.log(
+    `Created: ${thinkpad.assetId}, ${iphone.assetId}, ${mouse.assetId}`,
+  );
   console.log("Admin login: admin@adc.local / Admin123!");
   console.log("Employee login: employee@adc.local / Employee123!");
   process.exit(0);

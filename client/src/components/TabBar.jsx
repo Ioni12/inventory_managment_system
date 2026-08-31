@@ -7,6 +7,7 @@ export const TAB_CONFIG = [
   { id: "catalog", label: "Catalog", roles: ["admin"] },
   { id: "furnitore", label: "Furnitore", roles: ["admin"] },
   { id: "employees", label: "Employees", roles: ["admin"] },
+  { id: "logs", label: "Logs", roles: ["admin"] },
 ];
 
 export default function TabBar({ role, activeTab, onChange }) {

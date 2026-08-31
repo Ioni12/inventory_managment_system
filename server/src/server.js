@@ -14,6 +14,7 @@ const nePerdorimRoutes = require("./routes/nePerdorim");
 const employeesRoutes = require("./routes/employees");
 const locationsRoutes = require("./routes/locations");
 const assetUnitsRoutes = require("./routes/assetUnits");
+const logsRoutes = require("./routes/logs");
 
 const app = express();
 
@@ -61,6 +62,8 @@ app.use("/api/products", requireAuth, productsRoutes);
 app.use("/api/employees", requireAuth, employeesRoutes);
 app.use("/api/locations", requireAuth, locationsRoutes);
 app.use("/api/asset-units", requireAuth, assetUnitsRoutes);
+// requireAdmin is applied inside routes/logs.js itself, on top of requireAuth here
+app.use("/api/logs", requireAuth, logsRoutes);
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 

@@ -1,5 +1,7 @@
 const Product = require("../models/Product");
+const Employee = require("../models/Employee");
 const { moveUnits } = require("../utils/productGroups");
+const { logAction } = require("../utils/logAction");
 
 async function loadProduct(req, res) {
   const product = await Product.findById(req.params.productId);
@@ -8,6 +10,17 @@ async function loadProduct(req, res) {
     return null;
   }
   return product;
+}
+
+async function holderLabel(holderId) {
+  if (!holderId) return null;
+  const employee =
+    await Employee.findById(holderId).select("firstName lastName");
+  return employee ? `${employee.firstName} ${employee.lastName}` : null;
+}
+
+function productLabel(product) {
+  return `${product.name} (${product.assetId})`;
 }
 
 // POST /api/products/:productId/groups/assign
@@ -35,6 +48,22 @@ async function assignUnits(req, res) {
     );
 
     await product.save();
+
+    const toName = await holderLabel(toHolder);
+    await logAction({
+      req,
+      action: "assign",
+      entityType: "Group",
+      entityId: product._id,
+      entityLabel: `${productLabel(product)}${toName ? ` -> ${toName}` : ""}`,
+      changes: {
+        quantity: Number(quantity),
+        fromStatus: fromStatus || "Ne magazine",
+        toStatus: "Ne perdorim",
+        toHolder: toName,
+      },
+    });
+
     res.json(product);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -61,6 +90,20 @@ async function returnUnits(req, res) {
     );
 
     await product.save();
+
+    const fromName = await holderLabel(fromHolder);
+    await logAction({
+      req,
+      action: "return",
+      entityType: "Group",
+      entityId: product._id,
+      entityLabel: `${productLabel(product)}${fromName ? ` <- ${fromName}` : ""}`,
+      changes: {
+        quantity: Number(quantity),
+        fromHolder: fromName,
+      },
+    });
+
     res.json(product);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -89,6 +132,21 @@ async function sendToRepair(req, res) {
     );
 
     await product.save();
+
+    const holderName = await holderLabel(fromHolder);
+    await logAction({
+      req,
+      action: "repair",
+      entityType: "Group",
+      entityId: product._id,
+      entityLabel: productLabel(product),
+      changes: {
+        quantity: Number(quantity),
+        fromStatus: fromStatus || "Ne magazine",
+        holder: holderName,
+      },
+    });
+
     res.json(product);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -113,6 +171,21 @@ async function returnFromRepair(req, res) {
     );
 
     await product.save();
+
+    const holderName = await holderLabel(holder);
+    await logAction({
+      req,
+      action: "return-from-repair",
+      entityType: "Group",
+      entityId: product._id,
+      entityLabel: productLabel(product),
+      changes: {
+        quantity: Number(quantity),
+        toStatus: toStatus || "Ne magazine",
+        holder: holderName,
+      },
+    });
+
     res.json(product);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -142,6 +215,21 @@ async function decommissionUnits(req, res) {
     );
 
     await product.save();
+
+    const holderName = await holderLabel(fromHolder);
+    await logAction({
+      req,
+      action: "decommission",
+      entityType: "Group",
+      entityId: product._id,
+      entityLabel: productLabel(product),
+      changes: {
+        quantity: Number(quantity),
+        fromStatus: fromStatus || "Ne magazine",
+        holderCleared: holderName || null,
+      },
+    });
+
     res.json(product);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -158,8 +246,24 @@ async function deleteGroup(req, res) {
     const group = product.groups.id(req.params.groupId);
     if (!group) return res.status(404).json({ error: "Group not found" });
 
+    const snapshot = {
+      status: group.status,
+      quantity: group.quantity,
+      holder: await holderLabel(group.currentHolder),
+    };
+
     group.deleteOne();
     await product.save();
+
+    await logAction({
+      req,
+      action: "delete-group",
+      entityType: "Group",
+      entityId: product._id,
+      entityLabel: productLabel(product),
+      changes: snapshot,
+    });
+
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: err.message });

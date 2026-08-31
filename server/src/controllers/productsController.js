@@ -1,4 +1,5 @@
 const ExcelJS = require("exceljs");
+const mongoose = require("mongoose");
 const Product = require("../models/Product");
 const Category = require("../models/Category");
 const Supplier = require("../models/Supplier");
@@ -10,6 +11,7 @@ const {
 } = require("../utils/productGroups");
 const { buildNePerdorimRows } = require("./nePerdorimController");
 const { applyStandardSheetStyle } = require("../utils/excelStyle");
+const { logAction, diffFields } = require("../utils/logAction");
 
 const NE_PERDORIM_COLUMNS = [
   { header: "Nr.", key: "nr", width: 6 },
@@ -195,6 +197,13 @@ function resolveStatus(raw) {
 // rows are merged into groups keyed by (status, currentHolder) using the
 // same findOrCreateGroup logic used at runtime (rule: import must use the
 // same merge-safety as live requests).
+//
+// Logging: one 'import-summary' line for the whole run, plus one
+// 'create'/'update' line per Product actually touched, each carrying a
+// real before/after diff of its batch fields (not the group quantity
+// changes, which are per-row-merged and not meaningfully diffable at
+// the field level the same way). All lines share a batchId so the
+// Logs tab can group them.
 async function importProducts(req, res) {
   if (!req.file) {
     return res
@@ -204,6 +213,7 @@ async function importProducts(req, res) {
 
   const results = { created: 0, updated: 0, skipped: [] };
   const newBatchByKey = new Map(); // `${name}|${category}` -> assetId, for this run only
+  const batchId = new mongoose.Types.ObjectId();
 
   try {
     const workbook = new ExcelJS.Workbook();
@@ -293,6 +303,8 @@ async function importProducts(req, res) {
       }
 
       let product;
+      let isNewProduct = false;
+      let beforeSnapshot = null;
 
       if (rawAssetId) {
         product = await Product.findOne({ assetId: rawAssetId.toUpperCase() });
@@ -303,6 +315,14 @@ async function importProducts(req, res) {
           });
           continue;
         }
+        beforeSnapshot = {
+          category: String(product.category || ""),
+          supplier: String(product.supplier || ""),
+          branding: product.branding,
+          unit: product.unit,
+          description: product.description,
+          purchasePrice: product.purchasePrice,
+        };
         Object.assign(product, batchFields);
       } else {
         const key = `${name.toLowerCase()}|${categoryId}`;
@@ -310,6 +330,15 @@ async function importProducts(req, res) {
 
         if (existingNewAssetId) {
           product = await Product.findOne({ assetId: existingNewAssetId });
+          beforeSnapshot = {
+            category: String(product.category || ""),
+            supplier: String(product.supplier || ""),
+            branding: product.branding,
+            unit: product.unit,
+            description: product.description,
+            purchasePrice: product.purchasePrice,
+          };
+          Object.assign(product, batchFields);
         } else {
           if (!categoryId) {
             results.skipped.push({
@@ -325,6 +354,7 @@ async function importProducts(req, res) {
             assetId,
             ...batchFields,
           });
+          isNewProduct = true;
           newBatchByKey.set(key, assetId);
         }
       }
@@ -334,15 +364,72 @@ async function importProducts(req, res) {
       group.quantity += quantity;
       pruneEmptyGroups(product);
 
-      const isNewProduct = product.isNew;
+      const alreadyTouchedThisRun = touchedProductIds.has(
+        String(product._id ?? ""),
+      );
       await product.save();
 
-      if (!touchedProductIds.has(String(product._id))) {
+      if (!alreadyTouchedThisRun) {
         touchedProductIds.add(String(product._id));
-        if (isNewProduct) results.created += 1;
-        else results.updated += 1;
+        if (isNewProduct) {
+          results.created += 1;
+          await logAction({
+            req,
+            batchId,
+            action: "create",
+            entityType: "Product",
+            entityId: product._id,
+            entityLabel: `${product.name} (${product.assetId})`,
+            changes: {
+              name: product.name,
+              assetId: product.assetId,
+              category: String(product.category || ""),
+              supplier: String(product.supplier || ""),
+              branding: product.branding,
+              unit: product.unit,
+              description: product.description,
+              purchasePrice: product.purchasePrice,
+            },
+          });
+        } else {
+          results.updated += 1;
+          const afterSnapshot = {
+            category: String(product.category || ""),
+            supplier: String(product.supplier || ""),
+            branding: product.branding,
+            unit: product.unit,
+            description: product.description,
+            purchasePrice: product.purchasePrice,
+          };
+          const changes = diffFields(beforeSnapshot, afterSnapshot);
+          if (Object.keys(changes).length > 0) {
+            await logAction({
+              req,
+              batchId,
+              action: "update",
+              entityType: "Product",
+              entityId: product._id,
+              entityLabel: `${product.name} (${product.assetId})`,
+              changes,
+            });
+          }
+        }
       }
     }
+
+    await logAction({
+      req,
+      batchId,
+      action: "import-summary",
+      entityType: "Product",
+      entityLabel: req.file.originalname || "products import",
+      changes: {
+        filename: req.file.originalname,
+        created: results.created,
+        updated: results.updated,
+        skipped: results.skipped,
+      },
+    });
 
     res.json(results);
   } catch (err) {

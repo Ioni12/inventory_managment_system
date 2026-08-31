@@ -1,10 +1,12 @@
 const ExcelJS = require("exceljs");
+const mongoose = require("mongoose");
 const Employee = require("../models/Employee");
 const Product = require("../models/Product");
 const { buildNePerdorimRows } = require("./nePerdorimController");
 const { findOrCreateGroup, moveUnits } = require("../utils/productGroups");
 const { isValidAssetId } = require("../utils/assetId");
 const { applyStandardSheetStyle } = require("../utils/excelStyle");
+const { logAction, diffFields } = require("../utils/logAction");
 
 async function exportNePerdorim(req, res) {
   try {
@@ -56,10 +58,18 @@ async function exportNePerdorim(req, res) {
   }
 }
 
+// POST /api/products/ne-perdorim/import
+//
+// Logging: one 'import-summary' line for the whole run, plus per-row
+// lines — a 'create'/'update' on the Employee touched, and an 'assign'
+// on the resulting Group action — each with a real diff/detail payload.
+// All lines share a batchId.
 async function importNePerdorim(req, res) {
-  try {
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
+  const batchId = new mongoose.Types.ObjectId();
+
+  try {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(req.file.buffer);
     const sheet = workbook.worksheets[0];
@@ -125,7 +135,18 @@ async function importNePerdorim(req, res) {
         if (employee) break;
       }
 
-      if (!employee && emerMbiemer && kompani) {
+      let employeeIsNew = false;
+      let beforeSnapshot = null;
+
+      if (employee) {
+        beforeSnapshot = {
+          company: employee.company,
+          department: employee.department,
+          phone: employee.phone,
+          badgeQr: employee.badgeQr,
+          emails: [...employee.emails],
+        };
+      } else if (emerMbiemer && kompani) {
         const [firstName, ...rest] = emerMbiemer.split(" ");
         const lastName = rest.join(" ");
         employee = await Employee.findOne({
@@ -133,6 +154,15 @@ async function importNePerdorim(req, res) {
           lastName,
           company: kompani,
         });
+        if (employee) {
+          beforeSnapshot = {
+            company: employee.company,
+            department: employee.department,
+            phone: employee.phone,
+            badgeQr: employee.badgeQr,
+            emails: [...employee.emails],
+          };
+        }
       }
 
       if (employee) {
@@ -149,6 +179,27 @@ async function importNePerdorim(req, res) {
         }
         await employee.save();
         employeesUpdated++;
+
+        const afterSnapshot = {
+          company: employee.company,
+          department: employee.department,
+          phone: employee.phone,
+          badgeQr: employee.badgeQr,
+          emails: employee.emails.join(", "),
+        };
+        beforeSnapshot.emails = beforeSnapshot.emails.join(", ");
+        const changes = diffFields(beforeSnapshot, afterSnapshot);
+        if (Object.keys(changes).length > 0) {
+          await logAction({
+            req,
+            batchId,
+            action: "update",
+            entityType: "Employee",
+            entityId: employee._id,
+            entityLabel: `${employee.firstName} ${employee.lastName}`,
+            changes,
+          });
+        }
       } else {
         if (!emerMbiemer) {
           skipped.push({
@@ -171,6 +222,26 @@ async function importNePerdorim(req, res) {
           role: "user",
         });
         employeesCreated++;
+        employeeIsNew = true;
+
+        await logAction({
+          req,
+          batchId,
+          action: "create",
+          entityType: "Employee",
+          entityId: employee._id,
+          entityLabel: `${employee.firstName} ${employee.lastName}`,
+          changes: {
+            firstName,
+            lastName,
+            email: primaryEmail,
+            emails: extraEmails.join(", "),
+            company: kompani,
+            department: departamenti,
+            phone: nrTelefoni,
+            badgeQr,
+          },
+        });
       }
 
       const sourceGroup = product.groups.find(
@@ -192,7 +263,37 @@ async function importNePerdorim(req, res) {
       );
       await product.save();
       assignmentsCreated++;
+
+      await logAction({
+        req,
+        batchId,
+        action: "assign",
+        entityType: "Group",
+        entityId: product._id,
+        entityLabel: `${product.name} (${product.assetId}) -> ${employee.firstName} ${employee.lastName}`,
+        changes: {
+          quantity: sasia,
+          fromStatus: "Ne magazine",
+          toStatus: "Ne perdorim",
+          holder: `${employee.firstName} ${employee.lastName}`,
+        },
+      });
     }
+
+    await logAction({
+      req,
+      batchId,
+      action: "import-summary",
+      entityType: "Employee",
+      entityLabel: req.file.originalname || "ne perdorim import",
+      changes: {
+        filename: req.file.originalname,
+        employeesCreated,
+        employeesUpdated,
+        assignmentsCreated,
+        skipped,
+      },
+    });
 
     res.json({
       employeesCreated,
