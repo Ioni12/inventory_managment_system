@@ -16,6 +16,7 @@ export default function ProductTable({
   onEdit,
   onDelete,
   groupActionsFor,
+  onSerialsChanged,
 }) {
   const [expandedId, setExpandedId] = useState(null);
 
@@ -123,9 +124,11 @@ export default function ProductTable({
                           p.groups.map((g) => (
                             <GroupRow
                               key={g._id}
+                              productId={p._id}
                               group={g}
                               employees={employees}
                               actions={groupActionsFor(p._id)}
+                              onSerialsChanged={onSerialsChanged}
                             />
                           ))
                         )}
@@ -196,9 +199,11 @@ export default function ProductTable({
                   p.groups.map((g) => (
                     <GroupRow
                       key={g._id}
+                      productId={p._id}
                       group={g}
                       employees={employees}
                       actions={groupActionsFor(p._id)}
+                      onSerialsChanged={onSerialsChanged}
                     />
                   ))
                 ))}

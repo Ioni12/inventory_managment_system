@@ -9,6 +9,14 @@ const STATUS_VALUES = [
 
 // One entry per distinct (status, currentHolder) combination in the batch.
 // Two units sharing both values live in the same group, represented by quantity.
+//
+// `serials` is optional per-unit identity within the group. Units without a
+// serial keep working exactly as before — pure count-based grouping. The
+// gap between serials.length and quantity IS the anonymous-unit count; no
+// separate flag needed. Invariant `serials.length <= quantity` is enforced
+// at the application layer (in productGroups.js / groupsController.js),
+// not here — Mongoose array-length validation against a sibling field on
+// the same subdocument is awkward.
 const groupSchema = new mongoose.Schema({
   quantity: { type: Number, required: true, min: 0 },
   status: {
@@ -21,6 +29,7 @@ const groupSchema = new mongoose.Schema({
     ref: "Employee",
     default: null,
   },
+  serials: { type: [String], default: [] },
 });
 
 const productSchema = new mongoose.Schema(

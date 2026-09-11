@@ -10,9 +10,9 @@ const { ensureUniqueAssetId } = require("./utils/assetId");
 
 // NOTE: Location and AssetUnit are intentionally NOT seeded here.
 // AssetUnit is fully deprecated (per-serial tracking was dropped in
-// favor of Product.groups[]) and Location is orphaned (not referenced
-// by Product or anything else) — see the project handoff doc's Open
-// Items. Seeding either would just create dead data.
+// favor of Product.groups[].serials) and Location is orphaned (not
+// referenced by Product or anything else) — see the project handoff
+// doc's Open Items. Seeding either would just create dead data.
 
 async function seed() {
   await connectDB();
@@ -69,7 +69,9 @@ async function seed() {
 
   console.log("Seeding products...");
 
-  // ThinkPad: 1 unit in Ne magazine (unassigned), 1 unit assigned to admin.
+  // ThinkPad: 1 unit in Ne magazine (unassigned, fully serialized), 1
+  // unit assigned to admin (also serialized). Demonstrates fully
+  // serialized groups at quantity 1 — serials.length === quantity.
   const thinkpadAssetId = await ensureUniqueAssetId(Product, "assetId");
   const thinkpad = await Product.create({
     name: "ThinkPad T14",
@@ -81,12 +83,24 @@ async function seed() {
     purchasePrice: 850,
     description: '14" business laptop',
     groups: [
-      { quantity: 1, status: "Ne magazine", currentHolder: null },
-      { quantity: 1, status: "Ne perdorim", currentHolder: admin._id },
+      {
+        quantity: 1,
+        status: "Ne magazine",
+        currentHolder: null,
+        serials: ["TP-SN-0001"],
+      },
+      {
+        quantity: 1,
+        status: "Ne perdorim",
+        currentHolder: admin._id,
+        serials: ["TP-SN-0002"],
+      },
     ],
   });
 
-  // iPhone: 1 unit assigned to staff.
+  // iPhone: 1 unit assigned to staff, unserialized — demonstrates the
+  // default/common case (serials: [] is the schema default, no need to
+  // pass it explicitly).
   const iphoneAssetId = await ensureUniqueAssetId(Product, "assetId");
   const iphone = await Product.create({
     name: "iPhone 13",
@@ -100,7 +114,9 @@ async function seed() {
     groups: [{ quantity: 1, status: "Ne perdorim", currentHolder: staff._id }],
   });
 
-  // Mouse: pure accessory, all unassigned in warehouse stock.
+  // Mouse: pure accessory, 10 units unassigned in warehouse stock, only
+  // 3 of them serialized. Demonstrates the PARTIALLY serialized case —
+  // serials.length (3) < quantity (10), the other 7 units are anonymous.
   const mouseAssetId = await ensureUniqueAssetId(Product, "assetId");
   const mouse = await Product.create({
     name: "Logitech M170 Mouse",
@@ -111,7 +127,14 @@ async function seed() {
     unit: "piece",
     purchasePrice: 12,
     description: "Wireless mouse",
-    groups: [{ quantity: 10, status: "Ne magazine", currentHolder: null }],
+    groups: [
+      {
+        quantity: 10,
+        status: "Ne magazine",
+        currentHolder: null,
+        serials: ["MOU-SN-01", "MOU-SN-02", "MOU-SN-03"],
+      },
+    ],
   });
 
   console.log("Seed complete.");

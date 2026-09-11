@@ -11,7 +11,7 @@ const {
 } = require("../utils/productGroups");
 const { buildNePerdorimRows } = require("./nePerdorimController");
 const { applyStandardSheetStyle } = require("../utils/excelStyle");
-const { logAction, diffFields } = require("../utils/logAction");
+const { logAction } = require("../utils/logAction");
 
 const NE_PERDORIM_COLUMNS = [
   { header: "Nr.", key: "nr", width: 6 },
@@ -20,6 +20,7 @@ const NE_PERDORIM_COLUMNS = [
   { header: "Departamenti", key: "departamenti", width: 16 },
   { header: "Asset ID", key: "assetId", width: 18 },
   { header: "Sasia", key: "sasia", width: 10 },
+  { header: "Serial", key: "serial", width: 18 },
   { header: "Emails", key: "email", width: 34 },
   { header: "Nr. telefoni", key: "nrTelefoni", width: 15 },
   { header: "Badge + QR Code", key: "badgeQr", width: 18 },
@@ -39,11 +40,13 @@ const STATUS_COLORS = {
   "Jashte perdorimit": "FFFEE2E2",
 };
 
-// One row per group (a status+holder bucket within a batch), not per unit.
+// One row per SERIAL within a group, plus (if any quantity in that group
+// is anonymous) one extra row for the remaining count. A group with no
+// serials exports exactly as before — a single row with its quantity.
 const EXPORT_COLUMNS = [
   { header: "Asset ID", key: "assetId", width: 18 },
   { header: "Kategoria", key: "categoryName", width: 16 },
-  { header: "Marka/modeli", key: "name", width: 22 },
+  { header: "Emri", key: "name", width: 22 },
   { header: "Branding", key: "branding", width: 14 },
   { header: "Njesia", key: "unit", width: 10 },
   { header: "Furnitori", key: "supplierName", width: 16 },
@@ -52,6 +55,7 @@ const EXPORT_COLUMNS = [
   { header: "Statusi", key: "status", width: 16 },
   { header: "Mbajtesi", key: "holderName", width: 20 },
   { header: "Sasia", key: "quantity", width: 10 },
+  { header: "Serial", key: "serial", width: 18 },
 ];
 
 const IMPORT_SHEET_NAME = "Asete gjendje";
@@ -80,18 +84,45 @@ async function exportProducts(req, res) {
       };
 
       if (p.groups.length === 0) {
-        sheet.addRow({ ...batch, status: "", holderName: "", quantity: 0 });
+        sheet.addRow({
+          ...batch,
+          status: "",
+          holderName: "",
+          quantity: 0,
+          serial: "",
+        });
         return;
       }
 
       p.groups.forEach((g) => {
         const holder = g.currentHolder;
-        sheet.addRow({
-          ...batch,
-          status: g.status,
-          holderName: holder ? `${holder.firstName} ${holder.lastName}` : "",
-          quantity: g.quantity,
+        const holderName = holder
+          ? `${holder.firstName} ${holder.lastName}`
+          : "";
+
+        // One row per serialized unit in this group.
+        (g.serials || []).forEach((serial) => {
+          sheet.addRow({
+            ...batch,
+            status: g.status,
+            holderName,
+            quantity: 1,
+            serial,
+          });
         });
+
+        // Remaining anonymous units in the group (or the whole quantity,
+        // for a group with no serials at all) get a single collapsed row.
+        const anonymousQty = g.quantity - (g.serials || []).length;
+        if (anonymousQty > 0) {
+          sheet.addRow({
+            ...batch,
+            status: g.status,
+            holderName,
+            quantity: anonymousQty,
+            serial: "",
+          });
+        }
       });
     });
 
@@ -192,18 +223,41 @@ function resolveStatus(raw) {
   return STATUS_VALUES.find((v) => v.toLowerCase() === raw.toLowerCase());
 }
 
+// Finds which group (if any) on a product already contains a given
+// serial, searching every group regardless of status/holder.
+function findGroupWithSerial(product, serial) {
+  return product.groups.find((g) => (g.serials || []).includes(serial));
+}
+
 // POST /api/products/import
-// Rows are grouped by Asset ID into one Product; within that Product,
-// rows are merged into groups keyed by (status, currentHolder) using the
-// same findOrCreateGroup logic used at runtime (rule: import must use the
-// same merge-safety as live requests).
 //
-// Logging: one 'import-summary' line for the whole run, plus one
-// 'create'/'update' line per Product actually touched, each carrying a
-// real before/after diff of its batch fields (not the group quantity
-// changes, which are per-row-merged and not meaningfully diffable at
-// the field level the same way). All lines share a batchId so the
-// Logs tab can group them.
+// Row semantics:
+//   - Empty Asset ID  -> defines a NEW product. All row fields apply.
+//   - Existing Asset ID -> merges into that product's matching group
+//     ONLY. The product's own fields (name/category/branding/etc.) are
+//     NEVER touched by a merge row, even if the row's columns differ
+//     from the existing product — this import is additive-only against
+//     existing items, never a field-level update path.
+//   - A row with a Serial value represents exactly ONE physical unit
+//     (Sasia must be 1 or blank; anything else is a row error, never
+//     silently truncated).
+//   - Serial handling per row, checked against the WHOLE product
+//     (across all its groups, not just the matched one):
+//       * not found anywhere on the product -> normal case, add the
+//         unit + tag the serial into the matched group.
+//       * found in the exact matched group already -> the row is
+//         already satisfied (e.g. re-importing an unmodified export);
+//         counted as a no-op, not an error, nothing is changed.
+//       * found in a DIFFERENT group on the same product -> genuine
+//         conflict (the row disagrees with where the system has that
+//         serial); the row is skipped with an error.
+//
+// Logging: one 'import-summary' line for the whole run. Brand-new
+// products still get a 'create' log with their defining fields. Rows
+// that merge into an EXISTING product no longer produce a field diff
+// (since fields are never touched), so instead each existing product
+// touched by the run gets one 'update' log summarizing the quantity/
+// serials added across all its merge rows this run.
 async function importProducts(req, res) {
   if (!req.file) {
     return res
@@ -211,9 +265,13 @@ async function importProducts(req, res) {
       .json({ error: 'No file uploaded (field name must be "file")' });
   }
 
-  const results = { created: 0, updated: 0, skipped: [] };
+  const results = { created: 0, updated: 0, noop: [], skipped: [] };
   const newBatchByKey = new Map(); // `${name}|${category}` -> assetId, for this run only
   const batchId = new mongoose.Types.ObjectId();
+
+  // Accumulates merge activity per EXISTING product touched this run, so
+  // we can emit one summary log line per product instead of per row.
+  const mergeAccByProductId = new Map();
 
   try {
     const workbook = new ExcelJS.Workbook();
@@ -224,12 +282,14 @@ async function importProducts(req, res) {
     const colIndex = buildColumnIndex(sheet);
     const get = cellGetter(colIndex);
 
-    const touchedProductIds = new Set();
+    const touchedNewProductIds = new Set();
 
     for (let rowNum = 2; rowNum <= sheet.rowCount; rowNum++) {
       const row = sheet.getRow(rowNum);
-      const name = get(row, "Marka/modeli") || get(row, "Name");
+      const name =
+        get(row, "Emri") || get(row, "Marka/modeli") || get(row, "Name");
       const rawAssetId = get(row, "Asset ID");
+      const serial = get(row, "Serial") || "";
 
       if (!name) {
         results.skipped.push({ row: rowNum, reason: "Missing product name" });
@@ -274,16 +334,35 @@ async function importProducts(req, res) {
         : null;
 
       const quantityRaw = get(row, "Sasia") || get(row, "Quantity");
-      const quantity =
-        quantityRaw !== undefined && quantityRaw !== ""
-          ? Number(quantityRaw)
-          : 1;
-      if (!quantity || quantity <= 0) {
-        results.skipped.push({
-          row: rowNum,
-          reason: "Sasia must be a positive number",
-        });
-        continue;
+
+      let quantity;
+      if (serial) {
+        // A serial row is exactly one physical unit. Never silently
+        // truncate a larger Sasia value — that's a row error.
+        if (
+          quantityRaw !== undefined &&
+          quantityRaw !== "" &&
+          Number(quantityRaw) !== 1
+        ) {
+          results.skipped.push({
+            row: rowNum,
+            reason: `Row has a Serial but Sasia is ${quantityRaw} (must be 1 or blank for a serialized row)`,
+          });
+          continue;
+        }
+        quantity = 1;
+      } else {
+        quantity =
+          quantityRaw !== undefined && quantityRaw !== ""
+            ? Number(quantityRaw)
+            : 1;
+        if (!quantity || quantity <= 0) {
+          results.skipped.push({
+            row: rowNum,
+            reason: "Sasia must be a positive number",
+          });
+          continue;
+        }
       }
 
       const batchFields = {};
@@ -304,7 +383,7 @@ async function importProducts(req, res) {
 
       let product;
       let isNewProduct = false;
-      let beforeSnapshot = null;
+      let isMergeIntoExisting = false;
 
       if (rawAssetId) {
         product = await Product.findOne({ assetId: rawAssetId.toUpperCase() });
@@ -315,29 +394,18 @@ async function importProducts(req, res) {
           });
           continue;
         }
-        beforeSnapshot = {
-          category: String(product.category || ""),
-          supplier: String(product.supplier || ""),
-          branding: product.branding,
-          unit: product.unit,
-          description: product.description,
-          purchasePrice: product.purchasePrice,
-        };
-        Object.assign(product, batchFields);
+        // Reused Asset ID = merge only. The product's own fields are
+        // NEVER touched here, regardless of what this row's columns say.
+        isMergeIntoExisting = true;
       } else {
         const key = `${name.toLowerCase()}|${categoryId}`;
         const existingNewAssetId = newBatchByKey.get(key);
 
         if (existingNewAssetId) {
+          // Additional row for a brand-new product being defined across
+          // multiple rows within THIS SAME import run — not a merge into
+          // a pre-existing product, so applying batchFields here is fine.
           product = await Product.findOne({ assetId: existingNewAssetId });
-          beforeSnapshot = {
-            category: String(product.category || ""),
-            supplier: String(product.supplier || ""),
-            branding: product.branding,
-            unit: product.unit,
-            description: product.description,
-            purchasePrice: product.purchasePrice,
-          };
           Object.assign(product, batchFields);
         } else {
           if (!categoryId) {
@@ -359,19 +427,40 @@ async function importProducts(req, res) {
         }
       }
 
-      // Merge this row's units into the matching group, same rule as live requests.
+      // Resolve the destination group for this row.
       const group = findOrCreateGroup(product, status, holderId);
-      group.quantity += quantity;
+
+      // Serial-aware merge logic.
+      if (serial) {
+        const existingSerialGroup = findGroupWithSerial(product, serial);
+        if (existingSerialGroup && existingSerialGroup === group) {
+          // Already recorded exactly where this row says — no-op.
+          results.noop.push({
+            row: rowNum,
+            reason: `Serial "${serial}" already recorded in this group — no change`,
+          });
+          continue;
+        }
+        if (existingSerialGroup && existingSerialGroup !== group) {
+          // Row disagrees with where the system has this serial.
+          results.skipped.push({
+            row: rowNum,
+            reason: `Serial "${serial}" already recorded in a different group of this product (status/holder mismatch)`,
+          });
+          continue;
+        }
+        group.quantity += quantity;
+        group.serials.push(serial);
+      } else {
+        group.quantity += quantity;
+      }
       pruneEmptyGroups(product);
 
-      const alreadyTouchedThisRun = touchedProductIds.has(
-        String(product._id ?? ""),
-      );
       await product.save();
 
-      if (!alreadyTouchedThisRun) {
-        touchedProductIds.add(String(product._id));
-        if (isNewProduct) {
+      if (isNewProduct) {
+        if (!touchedNewProductIds.has(String(product._id))) {
+          touchedNewProductIds.add(String(product._id));
           results.created += 1;
           await logAction({
             req,
@@ -391,30 +480,42 @@ async function importProducts(req, res) {
               purchasePrice: product.purchasePrice,
             },
           });
-        } else {
-          results.updated += 1;
-          const afterSnapshot = {
-            category: String(product.category || ""),
-            supplier: String(product.supplier || ""),
-            branding: product.branding,
-            unit: product.unit,
-            description: product.description,
-            purchasePrice: product.purchasePrice,
-          };
-          const changes = diffFields(beforeSnapshot, afterSnapshot);
-          if (Object.keys(changes).length > 0) {
-            await logAction({
-              req,
-              batchId,
-              action: "update",
-              entityType: "Product",
-              entityId: product._id,
-              entityLabel: `${product.name} (${product.assetId})`,
-              changes,
-            });
-          }
         }
+      } else if (isMergeIntoExisting) {
+        const pid = String(product._id);
+        let acc = mergeAccByProductId.get(pid);
+        if (!acc) {
+          acc = {
+            product,
+            quantityAdded: 0,
+            serialsAdded: [],
+            groupsTouched: new Set(),
+          };
+          mergeAccByProductId.set(pid, acc);
+          results.updated += 1;
+        }
+        acc.quantityAdded += quantity;
+        if (serial) acc.serialsAdded.push(serial);
+        acc.groupsTouched.add(`${status} / ${holderName || "unassigned"}`);
       }
+    }
+
+    // One 'update' log per existing product actually merged into this run.
+    for (const acc of mergeAccByProductId.values()) {
+      await logAction({
+        req,
+        batchId,
+        action: "update",
+        entityType: "Product",
+        entityId: acc.product._id,
+        entityLabel: `${acc.product.name} (${acc.product.assetId})`,
+        changes: {
+          importMerge: true,
+          quantityAdded: acc.quantityAdded,
+          serialsAdded: acc.serialsAdded,
+          groupsTouched: Array.from(acc.groupsTouched),
+        },
+      });
     }
 
     await logAction({
@@ -427,6 +528,7 @@ async function importProducts(req, res) {
         filename: req.file.originalname,
         created: results.created,
         updated: results.updated,
+        noop: results.noop,
         skipped: results.skipped,
       },
     });

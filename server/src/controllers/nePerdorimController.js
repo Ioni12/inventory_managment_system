@@ -7,6 +7,11 @@ const Product = require("../models/Product");
  * collection. Used by both the JSON endpoint (frontend tab) and the
  * Excel export (second sheet of Products export, and the standalone
  * Ne Perdorim export) — implemented once, rendered multiple ways.
+ *
+ * Serial handling: a group with serialized units explodes into one row
+ * per serial (sasia: 1, serial: <value>), plus one collapsed row for
+ * any remaining anonymous quantity in that group (serial: ""). A group
+ * with no serials produces exactly one row, unchanged from before.
  */
 async function buildNePerdorimRows() {
   const products = await Product.find({
@@ -29,8 +34,8 @@ async function buildNePerdorimRows() {
         const email = [employee.email, ...(employee.emails || [])]
           .filter(Boolean)
           .join(", ");
-        rows.push({
-          nr: counter++,
+
+        const baseRow = {
           productId: product._id,
           groupId: g._id,
           holderId: employee._id,
@@ -38,11 +43,29 @@ async function buildNePerdorimRows() {
           kompani: employee.company || "",
           departamenti: employee.department || "",
           assetId: product.assetId || "",
-          sasia: g.quantity,
           email,
           nrTelefoni: employee.phone || "",
           badgeQr: employee.badgeQr || "",
+        };
+
+        (g.serials || []).forEach((serial) => {
+          rows.push({
+            ...baseRow,
+            nr: counter++,
+            sasia: 1,
+            serial,
+          });
         });
+
+        const anonymousQty = g.quantity - (g.serials || []).length;
+        if (anonymousQty > 0) {
+          rows.push({
+            ...baseRow,
+            nr: counter++,
+            sasia: anonymousQty,
+            serial: "",
+          });
+        }
       });
   });
 

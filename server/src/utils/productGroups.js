@@ -24,6 +24,7 @@ function findOrCreateGroup(product, status, currentHolder) {
       quantity: 0,
       status,
       currentHolder: currentHolder || null,
+      serials: [],
     });
     group = product.groups[product.groups.length - 1];
   }
@@ -46,11 +47,24 @@ function pruneEmptyGroups(product) {
  * @param {Object} source - { status, currentHolder }
  * @param {Object} destination - { status, currentHolder }
  * @param {number} quantity - how many units to move (must be > 0)
- * @throws {Error} if the source group doesn't exist or has insufficient quantity
+ * @param {string[]} [serials] - specific serials to carry along with the
+ *   move. Optional — omit (or pass []) for a pure count-only move, which
+ *   is the default/fallback behavior and must stay unaffected by this
+ *   parameter's existence. Every listed serial must already be present
+ *   in the SOURCE group's serials[]; anything else throws.
+ * @throws {Error} if the source group doesn't exist, has insufficient
+ *   quantity, has more serials requested than quantity being moved, or
+ *   a requested serial isn't present in the source group
  */
-function moveUnits(product, source, destination, quantity) {
+function moveUnits(product, source, destination, quantity, serials = []) {
   if (!quantity || quantity <= 0) {
     throw new Error("quantity must be a positive number");
+  }
+
+  if (serials.length > quantity) {
+    throw new Error(
+      `Cannot move ${serials.length} serial(s) with only ${quantity} unit(s)`,
+    );
   }
 
   const sourceGroup = product.groups.find(
@@ -65,7 +79,18 @@ function moveUnits(product, source, destination, quantity) {
     );
   }
 
+  for (const serial of serials) {
+    if (!sourceGroup.serials.includes(serial)) {
+      throw new Error(`Serial "${serial}" not found in source group`);
+    }
+  }
+
   sourceGroup.quantity -= quantity;
+  if (serials.length) {
+    sourceGroup.serials = sourceGroup.serials.filter(
+      (s) => !serials.includes(s),
+    );
+  }
 
   const destGroup = findOrCreateGroup(
     product,
@@ -73,6 +98,9 @@ function moveUnits(product, source, destination, quantity) {
     destination.currentHolder,
   );
   destGroup.quantity += quantity;
+  if (serials.length) {
+    destGroup.serials.push(...serials);
+  }
 
   pruneEmptyGroups(product);
 }

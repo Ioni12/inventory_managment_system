@@ -19,6 +19,8 @@ const logSchema = new mongoose.Schema(
         "return-from-repair",
         "decommission",
         "delete-group",
+        "add-serial",
+        "remove-serial",
         "import-summary", // one per import run, alongside the per-item lines
       ],
     },
@@ -42,6 +44,7 @@ const logSchema = new mongoose.Schema(
     // actually changed. For 'create': the full created object (minus
     // internal fields). For 'delete': a snapshot of what was deleted.
     // For group actions: { quantity, fromStatus, toStatus, holderBefore, holderAfter }.
+    // For 'add-serial'/'remove-serial': { serial, status, holder }.
     // For 'import-summary': { filename, created, updated, skipped }.
     changes: { type: mongoose.Schema.Types.Mixed, default: {} },
   },

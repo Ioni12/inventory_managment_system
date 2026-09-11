@@ -10,7 +10,9 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 router.get("/", getNePerdorim);
+
 router.get("/export", exportNePerdorim);
+
 router.post("/import", upload.single("file"), importNePerdorim);
 
 module.exports = router;

@@ -4,7 +4,6 @@ const Employee = require("../models/Employee");
 
 const router = express.Router();
 
-// POST /api/auth/login
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -36,7 +35,6 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// POST /api/auth/logout
 router.post("/logout", (req, res) => {
   req.session.destroy((err) => {
     if (err) return res.status(500).json({ error: "Could not log out" });
@@ -45,7 +43,6 @@ router.post("/logout", (req, res) => {
   });
 });
 
-// GET /api/auth/me
 router.get("/me", async (req, res) => {
   if (!req.session || !req.session.userId) {
     return res.status(401).json({ error: "Not authenticated" });

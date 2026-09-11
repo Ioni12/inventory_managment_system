@@ -24,16 +24,18 @@ function productLabel(product) {
 }
 
 // POST /api/products/:productId/groups/assign
-// body: { fromStatus, fromHolder, toHolder, quantity }
+// body: { fromStatus, fromHolder, toHolder, quantity, serials? }
 // Assigns `quantity` units currently in `fromStatus`/`fromHolder` to `toHolder`.
 // Status stays the same by default unless caller also wants to flip it —
 // for a plain assignment, status is typically 'Ne magazine' -> 'Ne perdorim'.
+// `serials` is optional — omitted/empty means a pure count-only move,
+// same as before this feature existed.
 async function assignUnits(req, res) {
   try {
     const product = await loadProduct(req, res);
     if (!product) return;
 
-    const { fromStatus, fromHolder, toHolder, quantity } = req.body;
+    const { fromStatus, fromHolder, toHolder, quantity, serials } = req.body;
     if (!toHolder)
       return res.status(400).json({ error: "toHolder is required" });
 
@@ -45,6 +47,7 @@ async function assignUnits(req, res) {
       },
       { status: "Ne perdorim", currentHolder: toHolder },
       Number(quantity),
+      serials || [],
     );
 
     await product.save();
@@ -61,6 +64,7 @@ async function assignUnits(req, res) {
         fromStatus: fromStatus || "Ne magazine",
         toStatus: "Ne perdorim",
         toHolder: toName,
+        ...(serials && serials.length ? { serials } : {}),
       },
     });
 
@@ -71,14 +75,14 @@ async function assignUnits(req, res) {
 }
 
 // POST /api/products/:productId/groups/return
-// body: { fromHolder, quantity }
+// body: { fromHolder, quantity, serials? }
 // Returns `quantity` units from a holder back to unassigned stock.
 async function returnUnits(req, res) {
   try {
     const product = await loadProduct(req, res);
     if (!product) return;
 
-    const { fromHolder, quantity } = req.body;
+    const { fromHolder, quantity, serials } = req.body;
     if (!fromHolder)
       return res.status(400).json({ error: "fromHolder is required" });
 
@@ -87,6 +91,7 @@ async function returnUnits(req, res) {
       { status: "Ne perdorim", currentHolder: fromHolder },
       { status: "Ne magazine", currentHolder: null },
       Number(quantity),
+      serials || [],
     );
 
     await product.save();
@@ -101,6 +106,7 @@ async function returnUnits(req, res) {
       changes: {
         quantity: Number(quantity),
         fromHolder: fromName,
+        ...(serials && serials.length ? { serials } : {}),
       },
     });
 
@@ -111,7 +117,7 @@ async function returnUnits(req, res) {
 }
 
 // POST /api/products/:productId/groups/repair
-// body: { fromStatus, fromHolder, quantity }
+// body: { fromStatus, fromHolder, quantity, serials? }
 // Sends units to repair. currentHolder is left UNTOUCHED (rule #4) —
 // a unit in repair is still conceptually with its holder (or unassigned).
 async function sendToRepair(req, res) {
@@ -119,7 +125,7 @@ async function sendToRepair(req, res) {
     const product = await loadProduct(req, res);
     if (!product) return;
 
-    const { fromStatus, fromHolder, quantity } = req.body;
+    const { fromStatus, fromHolder, quantity, serials } = req.body;
 
     moveUnits(
       product,
@@ -129,6 +135,7 @@ async function sendToRepair(req, res) {
       },
       { status: "Ne riparim", currentHolder: fromHolder || null }, // holder unchanged
       Number(quantity),
+      serials || [],
     );
 
     await product.save();
@@ -144,6 +151,7 @@ async function sendToRepair(req, res) {
         quantity: Number(quantity),
         fromStatus: fromStatus || "Ne magazine",
         holder: holderName,
+        ...(serials && serials.length ? { serials } : {}),
       },
     });
 
@@ -154,20 +162,21 @@ async function sendToRepair(req, res) {
 }
 
 // POST /api/products/:productId/groups/return-from-repair
-// body: { toStatus, holder, quantity }
+// body: { toStatus, holder, quantity, serials? }
 // Returns units from repair back to a given status. holder unchanged throughout.
 async function returnFromRepair(req, res) {
   try {
     const product = await loadProduct(req, res);
     if (!product) return;
 
-    const { toStatus, holder, quantity } = req.body;
+    const { toStatus, holder, quantity, serials } = req.body;
 
     moveUnits(
       product,
       { status: "Ne riparim", currentHolder: holder || null },
       { status: toStatus || "Ne magazine", currentHolder: holder || null }, // holder unchanged
       Number(quantity),
+      serials || [],
     );
 
     await product.save();
@@ -183,6 +192,7 @@ async function returnFromRepair(req, res) {
         quantity: Number(quantity),
         toStatus: toStatus || "Ne magazine",
         holder: holderName,
+        ...(serials && serials.length ? { serials } : {}),
       },
     });
 
@@ -193,7 +203,7 @@ async function returnFromRepair(req, res) {
 }
 
 // POST /api/products/:productId/groups/decommission
-// body: { fromStatus, fromHolder, quantity }
+// body: { fromStatus, fromHolder, quantity, serials? }
 // Decommissions units: status -> Jashte perdorimit AND currentHolder -> null
 // (rule #4 — NOT symmetric with repair; a decommissioned unit isn't
 // coming back to anyone).
@@ -202,7 +212,7 @@ async function decommissionUnits(req, res) {
     const product = await loadProduct(req, res);
     if (!product) return;
 
-    const { fromStatus, fromHolder, quantity } = req.body;
+    const { fromStatus, fromHolder, quantity, serials } = req.body;
 
     moveUnits(
       product,
@@ -212,6 +222,7 @@ async function decommissionUnits(req, res) {
       },
       { status: "Jashte perdorimit", currentHolder: null }, // holder cleared
       Number(quantity),
+      serials || [],
     );
 
     await product.save();
@@ -227,6 +238,7 @@ async function decommissionUnits(req, res) {
         quantity: Number(quantity),
         fromStatus: fromStatus || "Ne magazine",
         holderCleared: holderName || null,
+        ...(serials && serials.length ? { serials } : {}),
       },
     });
 
@@ -250,6 +262,7 @@ async function deleteGroup(req, res) {
       status: group.status,
       quantity: group.quantity,
       holder: await holderLabel(group.currentHolder),
+      serials: group.serials,
     };
 
     group.deleteOne();
@@ -270,6 +283,101 @@ async function deleteGroup(req, res) {
   }
 }
 
+// POST /api/products/:productId/groups/:groupId/serials
+// body: { serial }
+// Tags a single physical unit within an existing group bucket with a
+// serial, WITHOUT moving any units between buckets. Uniqueness is
+// enforced per-Product across all of that product's groups[].serials
+// (case-sensitive exact match, first pass).
+async function addSerial(req, res) {
+  try {
+    const product = await loadProduct(req, res);
+    if (!product) return;
+
+    const { serial } = req.body;
+    if (!serial || !String(serial).trim()) {
+      return res.status(400).json({ error: "serial is required" });
+    }
+    const value = String(serial).trim();
+
+    const group = product.groups.id(req.params.groupId);
+    if (!group) return res.status(404).json({ error: "Group not found" });
+
+    const alreadyUsed = product.groups.some((g) => g.serials.includes(value));
+    if (alreadyUsed) {
+      return res
+        .status(400)
+        .json({ error: `Serial "${value}" already exists on this product` });
+    }
+
+    if (group.serials.length >= group.quantity) {
+      return res.status(400).json({
+        error: `Cannot tag more serials than units in this group (${group.quantity})`,
+      });
+    }
+
+    group.serials.push(value);
+    await product.save();
+
+    await logAction({
+      req,
+      action: "add-serial",
+      entityType: "Group",
+      entityId: product._id,
+      entityLabel: `${productLabel(product)} — ${value}`,
+      changes: {
+        serial: value,
+        status: group.status,
+        holder: await holderLabel(group.currentHolder),
+      },
+    });
+
+    res.json(product);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+// DELETE /api/products/:productId/groups/:groupId/serials/:serial
+// Untags a serial from a group without moving any units.
+async function removeSerial(req, res) {
+  try {
+    const product = await loadProduct(req, res);
+    if (!product) return;
+
+    const group = product.groups.id(req.params.groupId);
+    if (!group) return res.status(404).json({ error: "Group not found" });
+
+    const { serial } = req.params;
+    const idx = group.serials.indexOf(serial);
+    if (idx === -1) {
+      return res
+        .status(404)
+        .json({ error: `Serial "${serial}" not found in this group` });
+    }
+
+    group.serials.splice(idx, 1);
+    await product.save();
+
+    await logAction({
+      req,
+      action: "remove-serial",
+      entityType: "Group",
+      entityId: product._id,
+      entityLabel: `${productLabel(product)} — ${serial}`,
+      changes: {
+        serial,
+        status: group.status,
+        holder: await holderLabel(group.currentHolder),
+      },
+    });
+
+    res.json(product);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
 module.exports = {
   assignUnits,
   returnUnits,
@@ -277,4 +385,6 @@ module.exports = {
   returnFromRepair,
   decommissionUnits,
   deleteGroup,
+  addSerial,
+  removeSerial,
 };
