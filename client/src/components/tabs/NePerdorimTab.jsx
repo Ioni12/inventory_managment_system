@@ -14,6 +14,12 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
  * phone, badge/QR) are NOT editable here; those belong to the Employees
  * tab. No optimistic updates — every successful action refetches this
  * tab's full list, since the backend gives no optimistic-update contract.
+ *
+ * SERIALS: backend now flattens each group into one row per tagged
+ * serial plus one row for the anonymous remainder (see
+ * buildNePerdorimRows / getNePerdorim). Multiple rows can now share the
+ * same groupId, so `r.groupId` alone is no longer a valid React key —
+ * using `${r.groupId}-${r.serial || 'anon'}` instead.
  */
 export default function NePerdorimTab() {
   const [rows, setRows] = useState([]);
@@ -116,6 +122,7 @@ export default function NePerdorimTab() {
           .post(`/products/${row.productId}/groups/return`, body)
           .then(load)
           .catch(actionError("Kthimi në magazinë dështoi")),
+      onSerialsChanged: load,
     };
   }
 
@@ -214,6 +221,12 @@ export default function NePerdorimTab() {
                     scope="col"
                     className="px-4 py-2 text-meta font-medium text-gray-500"
                   >
+                    Serial
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-4 py-2 text-meta font-medium text-gray-500"
+                  >
                     Sasia
                   </th>
                   <th
@@ -242,7 +255,7 @@ export default function NePerdorimTab() {
               <tbody>
                 {rows.map((r) => (
                   <tr
-                    key={r.groupId}
+                    key={`${r.groupId}-${r.serial || "anon"}`}
                     className="border-b border-surface-border last:border-0"
                   >
                     <td className="px-4 py-2 text-meta text-gray-500">
@@ -259,6 +272,9 @@ export default function NePerdorimTab() {
                     </td>
                     <td className="px-4 py-2 text-meta text-gray-500">
                       {r.assetId}
+                    </td>
+                    <td className="px-4 py-2 text-meta font-mono text-gray-500">
+                      {r.serial || "—"}
                     </td>
                     <td className="px-4 py-2 text-body text-gray-700">
                       {r.sasia}
@@ -287,7 +303,10 @@ export default function NePerdorimTab() {
 
           <div className="md:hidden flex flex-col gap-3">
             {rows.map((r) => (
-              <div key={r.groupId} className={`${cardClasses} p-4`}>
+              <div
+                key={`${r.groupId}-${r.serial || "anon"}`}
+                className={`${cardClasses} p-4`}
+              >
                 <div className="flex items-start justify-between mb-2">
                   <span className="text-body font-medium text-gray-900">
                     {r.emerMbiemer}
@@ -299,6 +318,7 @@ export default function NePerdorimTab() {
                 </p>
                 <p className="text-meta text-gray-500 mb-1">
                   {r.assetId} · Sasia: {r.sasia}
+                  {r.serial && ` · ${r.serial}`}
                 </p>
                 <p className="text-body text-gray-600 mb-1">{r.email || "—"}</p>
                 <p className="text-body text-gray-600 mb-1">

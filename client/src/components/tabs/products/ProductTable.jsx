@@ -1,6 +1,6 @@
 import { Fragment, useState } from "react";
 import StockBadge from "../../StockBadge";
-import GroupRow from "./GroupRow";
+import StatusSection from "./StatusSection";
 import { cardClasses } from "../../../lib/ui";
 
 /**
@@ -121,16 +121,13 @@ export default function ProductTable({
                             Ky produkt nuk ka grupe ende.
                           </p>
                         ) : (
-                          p.groups.map((g) => (
-                            <GroupRow
-                              key={g._id}
-                              productId={p._id}
-                              group={g}
-                              employees={employees}
-                              actions={groupActionsFor(p._id)}
-                              onSerialsChanged={onSerialsChanged}
-                            />
-                          ))
+                          <StatusSection
+                            productId={p._id}
+                            groups={p.groups}
+                            employees={employees}
+                            actions={groupActionsFor(p._id)}
+                            onSerialsChanged={onSerialsChanged}
+                          />
                         )}
                       </td>
                     </tr>
@@ -196,16 +193,13 @@ export default function ProductTable({
                     Ky produkt nuk ka grupe ende.
                   </p>
                 ) : (
-                  p.groups.map((g) => (
-                    <GroupRow
-                      key={g._id}
-                      productId={p._id}
-                      group={g}
-                      employees={employees}
-                      actions={groupActionsFor(p._id)}
-                      onSerialsChanged={onSerialsChanged}
-                    />
-                  ))
+                  <StatusSection
+                    productId={p._id}
+                    groups={p.groups}
+                    employees={employees}
+                    actions={groupActionsFor(p._id)}
+                    onSerialsChanged={onSerialsChanged}
+                  />
                 ))}
             </div>
           );

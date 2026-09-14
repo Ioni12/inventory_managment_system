@@ -9,26 +9,21 @@ import { buttonSecondaryClasses, inputClasses } from "../lib/ui";
  *
  * Which actions are offered depends on the group's current status: you
  * can't "return from repair" a group that isn't in repair, etc. Gating
- * this here means the group row never shows a button that would just
- * fail against the backend.
+ * this here means the row never shows a button that would just fail
+ * against the backend.
  *
- * Serials: opt-in only, per-form. If the source group has any serials at
- * all, an explicit "përfshi seriale specifike" toggle appears inside the
- * relevant mini-form. Left untouched (not expanded, nothing selected),
- * behavior is identical to before this feature existed — `serials` is
- * simply omitted from the request body, never sent as `[]` proactively.
- * This is deliberate: a passively-visible multi-select next to a
- * quantity field risks an accidental partial-serial submission (user
- * picks 2 of 5 available serials without meaning to constrain the move).
- * Requiring an explicit toggle makes "I'm choosing specific units" a
- * deliberate act.
+ * SCOPE CHANGE (serials feature): this bar now acts on the ANONYMOUS
+ * (unserialized) remainder of a group only — not the whole group. Each
+ * serialized unit gets its own row with its own SerialActionsBar
+ * (quantity always 1, that one serial always included). This bar's
+ * quantity is capped at `group.quantity - group.serials.length`, and it
+ * never sends a `serials` field — these units aren't tagged, so there's
+ * nothing to include. If a group has zero serials, this is functionally
+ * identical to the pre-serials-feature behavior (full group quantity).
  *
- * NOTE: "Kthe në magazinë" (return) is a one-click action with no
- * mini-form — it always returns the full group quantity immediately, no
- * `open` state involved. That interaction model predates this feature
- * and isn't changed here, so specific-serial returns aren't supported by
- * this bar yet. Flagging as a known scope gap rather than silently
- * deciding to rework the return button's UX.
+ * NOTE: "Kthe në magazinë" (return) is still a one-click action with no
+ * mini-form — it returns the full anonymous-remainder quantity
+ * immediately. Predates this feature, interaction model unchanged here.
  */
 export default function GroupActionsBar({
   group,
@@ -44,21 +39,16 @@ export default function GroupActionsBar({
   const [quantity, setQuantity] = useState(1);
   const [toHolder, setToHolder] = useState("");
   const [toStatus, setToStatus] = useState("Ne magazine");
-  const [useSerials, setUseSerials] = useState(false);
-  const [selectedSerials, setSelectedSerials] = useState([]);
 
-  const maxQty = group.quantity;
+  const serialCount = (group.serials ?? []).length;
+  const maxQty = group.quantity - serialCount; // anonymous remainder only
   const hasHolder = Boolean(group.currentHolder);
-  const groupSerials = group.serials ?? [];
-  const hasSerials = groupSerials.length > 0;
 
   function closeAndReset() {
     setOpen(null);
     setQuantity(1);
     setToHolder("");
     setToStatus("Ne magazine");
-    setUseSerials(false);
-    setSelectedSerials([]);
   }
 
   function clampedQty() {
@@ -67,22 +57,9 @@ export default function GroupActionsBar({
     return Math.min(n, maxQty);
   }
 
-  // Only include `serials` in the request body when the user explicitly
-  // opted in AND picked at least one. Otherwise omit the field entirely
-  // (never send `serials: []` proactively) so a normal move is untouched.
-  function serialsPayload() {
-    if (!useSerials || selectedSerials.length === 0) return {};
-    return { serials: selectedSerials };
-  }
-
-  function toggleSerial(serial) {
-    setSelectedSerials((prev) => {
-      if (prev.includes(serial)) return prev.filter((s) => s !== serial);
-      const qty = clampedQty();
-      if (prev.length >= qty) return prev; // capped at chosen quantity
-      return [...prev, serial];
-    });
-  }
+  // Nothing anonymous left to act on — this bar has no role for this
+  // group (all units are serialized, handled entirely by per-serial rows).
+  if (maxQty <= 0) return null;
 
   const quantityPicker = (
     <input
@@ -90,66 +67,10 @@ export default function GroupActionsBar({
       min={1}
       max={maxQty}
       value={quantity}
-      onChange={(e) => {
-        setQuantity(e.target.value);
-        // Re-clamp selection if quantity shrinks below what's picked
-        setSelectedSerials((prev) => {
-          const n = Number(e.target.value);
-          const qty = Number.isFinite(n) && n >= 1 ? Math.min(n, maxQty) : 1;
-          return prev.slice(0, qty);
-        });
-      }}
+      onChange={(e) => setQuantity(e.target.value)}
       className={`${inputClasses} w-20 py-1`}
       aria-label="Sasia"
     />
-  );
-
-  // Shared opt-in serial picker block, used inside the 4 form-based
-  // actions below. Only rendered at all when the source group has
-  // serials — the common serial-less case shows nothing extra.
-  const serialPicker = hasSerials && (
-    <div className="w-full flex flex-col gap-2">
-      <label className="flex items-center gap-2 text-meta text-gray-600">
-        <input
-          type="checkbox"
-          checked={useSerials}
-          onChange={(e) => {
-            setUseSerials(e.target.checked);
-            if (!e.target.checked) setSelectedSerials([]);
-          }}
-        />
-        Përfshi seriale specifike
-      </label>
-
-      {useSerials && (
-        <div className="flex flex-wrap gap-2 pl-6">
-          {groupSerials.map((serial) => {
-            const checked = selectedSerials.includes(serial);
-            return (
-              <label
-                key={serial}
-                className={`flex items-center gap-1.5 text-meta rounded-app border px-2 py-1 cursor-pointer ${
-                  checked
-                    ? "border-accent-600 text-accent-700 bg-accent-50"
-                    : "border-surface-border text-gray-600"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => toggleSerial(serial)}
-                  className="sr-only"
-                />
-                <span className="font-mono">{serial}</span>
-              </label>
-            );
-          })}
-          <span className="text-meta text-gray-500 self-center">
-            {selectedSerials.length}/{clampedQty()} zgjedhur
-          </span>
-        </div>
-      )}
-    </div>
   );
 
   // --- Assign: available from Ne magazine or Ne perdorim (reassign) ---
@@ -182,7 +103,6 @@ export default function GroupActionsBar({
               fromHolder: group.currentHolder?._id ?? null,
               toHolder,
               quantity: clampedQty(),
-              ...serialsPayload(),
             });
             closeAndReset();
           }}
@@ -196,7 +116,6 @@ export default function GroupActionsBar({
         >
           Anulo
         </button>
-        {serialPicker}
       </div>
     );
   }
@@ -214,7 +133,6 @@ export default function GroupActionsBar({
               fromStatus: group.status,
               fromHolder: group.currentHolder?._id ?? null,
               quantity: clampedQty(),
-              ...serialsPayload(),
             });
             closeAndReset();
           }}
@@ -228,7 +146,6 @@ export default function GroupActionsBar({
         >
           Anulo
         </button>
-        {serialPicker}
       </div>
     );
   }
@@ -255,7 +172,6 @@ export default function GroupActionsBar({
               toStatus,
               holder: group.currentHolder?._id ?? null,
               quantity: clampedQty(),
-              ...serialsPayload(),
             });
             closeAndReset();
           }}
@@ -269,7 +185,6 @@ export default function GroupActionsBar({
         >
           Anulo
         </button>
-        {serialPicker}
       </div>
     );
   }
@@ -290,7 +205,6 @@ export default function GroupActionsBar({
               fromStatus: group.status,
               fromHolder: group.currentHolder?._id ?? null,
               quantity: clampedQty(),
-              ...serialsPayload(),
             });
             closeAndReset();
           }}
@@ -304,7 +218,6 @@ export default function GroupActionsBar({
         >
           Anulo
         </button>
-        {serialPicker}
       </div>
     );
   }
