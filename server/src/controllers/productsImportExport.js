@@ -8,10 +8,12 @@ const { isValidAssetId, ensureUniqueAssetId } = require("../utils/assetId");
 const {
   findOrCreateGroup,
   pruneEmptyGroups,
+  findGroupWithSerial,
 } = require("../utils/productGroups");
 const { buildNePerdorimRows } = require("./nePerdorimController");
 const { applyStandardSheetStyle } = require("../utils/excelStyle");
 const { logAction } = require("../utils/logAction");
+const { STATUS_VALUES } = require("../models/Product");
 
 const NE_PERDORIM_COLUMNS = [
   { header: "Nr.", key: "nr", width: 6 },
@@ -24,13 +26,6 @@ const NE_PERDORIM_COLUMNS = [
   { header: "Emails", key: "email", width: 34 },
   { header: "Nr. telefoni", key: "nrTelefoni", width: 15 },
   { header: "Badge + QR Code", key: "badgeQr", width: 18 },
-];
-
-const STATUS_VALUES = [
-  "Ne magazine",
-  "Ne perdorim",
-  "Ne riparim",
-  "Jashte perdorimit",
 ];
 
 const STATUS_COLORS = {
@@ -46,16 +41,16 @@ const STATUS_COLORS = {
 const EXPORT_COLUMNS = [
   { header: "Asset ID", key: "assetId", width: 18 },
   { header: "Kategoria", key: "categoryName", width: 16 },
+  { header: "Serial", key: "serial", width: 18 },
   { header: "Emri", key: "name", width: 22 },
   { header: "Branding", key: "branding", width: 14 },
+  { header: "Sasia", key: "quantity", width: 10 },
   { header: "Njesia", key: "unit", width: 10 },
   { header: "Furnitori", key: "supplierName", width: 16 },
   { header: "Cmimi i blerjes", key: "purchasePrice", width: 14 },
-  { header: "Pershkrim (opsional)", key: "description", width: 26 },
   { header: "Statusi", key: "status", width: 16 },
+  { header: "Pershkrim (opsional)", key: "description", width: 26 },
   { header: "Mbajtesi", key: "holderName", width: 20 },
-  { header: "Sasia", key: "quantity", width: 10 },
-  { header: "Serial", key: "serial", width: 18 },
 ];
 
 const IMPORT_SHEET_NAME = "Asete gjendje";
@@ -221,12 +216,6 @@ async function resolveHolder(fullName, email) {
 function resolveStatus(raw) {
   if (!raw) return undefined;
   return STATUS_VALUES.find((v) => v.toLowerCase() === raw.toLowerCase());
-}
-
-// Finds which group (if any) on a product already contains a given
-// serial, searching every group regardless of status/holder.
-function findGroupWithSerial(product, serial) {
-  return product.groups.find((g) => (g.serials || []).includes(serial));
 }
 
 // POST /api/products/import

@@ -105,4 +105,18 @@ function moveUnits(product, source, destination, quantity, serials = []) {
   pruneEmptyGroups(product);
 }
 
-module.exports = { findOrCreateGroup, pruneEmptyGroups, moveUnits, sameHolder };
+/**
+ * Finds which group (if any) on a product already contains a given
+ * serial, searching every group regardless of status/holder.
+ */
+function findGroupWithSerial(product, serial) {
+  return product.groups.find((g) => (g.serials || []).includes(serial));
+}
+
+module.exports = {
+  findOrCreateGroup,
+  pruneEmptyGroups,
+  moveUnits,
+  sameHolder,
+  findGroupWithSerial,
+};

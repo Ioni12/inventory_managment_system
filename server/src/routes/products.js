@@ -5,7 +5,7 @@ const Product = require("../models/Product");
 const {
   exportProducts,
   importProducts,
-} = require("../controllers/productsController");
+} = require("../controllers/productsImportExport");
 const {
   assignUnits,
   returnUnits,

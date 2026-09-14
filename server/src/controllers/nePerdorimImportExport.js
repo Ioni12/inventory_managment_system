@@ -3,16 +3,14 @@ const mongoose = require("mongoose");
 const Employee = require("../models/Employee");
 const Product = require("../models/Product");
 const { buildNePerdorimRows } = require("./nePerdorimController");
-const { findOrCreateGroup, moveUnits } = require("../utils/productGroups");
+const {
+  findOrCreateGroup,
+  moveUnits,
+  findGroupWithSerial,
+} = require("../utils/productGroups");
 const { isValidAssetId } = require("../utils/assetId");
 const { applyStandardSheetStyle } = require("../utils/excelStyle");
 const { logAction, diffFields } = require("../utils/logAction");
-
-// Finds which group (if any) on a product already contains a given
-// serial, searching every group regardless of status/holder.
-function findGroupWithSerial(product, serial) {
-  return product.groups.find((g) => (g.serials || []).includes(serial));
-}
 
 async function exportNePerdorim(req, res) {
   try {
