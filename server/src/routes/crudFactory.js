@@ -1,5 +1,6 @@
 const express = require("express");
 const { logAction, diffFields } = require("../utils/logAction");
+const { NotFoundError, ValidationError } = require("../utils/errors");
 
 /**
  * Picks a human-readable label for a doc for log entries, without
@@ -54,41 +55,57 @@ function crudFactory(Model, opts = {}) {
   const entityType = Model.modelName;
 
   // GET / - list all
-  router.get("/", async (req, res) => {
+  router.get("/", async (req, res, next) => {
     try {
       let query = Model.find();
       if (populate) query = query.populate(populate);
       const docs = await query.sort({ createdAt: -1 });
       res.json(docs);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      next(err);
     }
   });
 
   // GET /:id - single
-  router.get("/:id", async (req, res) => {
+  router.get("/:id", async (req, res, next) => {
     try {
       let query = Model.findById(req.params.id);
       if (populate) query = query.populate(populate);
       const doc = await query;
-      if (!doc) return res.status(404).json({ error: "Not found" });
+      if (!doc) {
+        throw new NotFoundError(`${entityType} not found`, "NOT_FOUND", {
+          id: req.params.id,
+        });
+      }
       res.json(doc);
     } catch (err) {
-      res.status(400).json({ error: "Invalid id" });
+      // An invalid ObjectId string throws a Mongoose CastError, not a
+      // "not found" — distinguish so the frontend gets a clear 400
+      // ("you gave me garbage") instead of a misleading 404.
+      if (err.name === "CastError") {
+        return next(
+          new ValidationError("Invalid id", "INVALID_ID", {
+            id: req.params.id,
+          }),
+        );
+      }
+      next(err);
     }
   });
 
   // POST / - create
-  router.post("/", async (req, res) => {
+  router.post("/", async (req, res, next) => {
     try {
       const missing = requiredFields.filter((f) => {
         const v = req.body[f];
         return v === undefined || v === null || v === "";
       });
       if (missing.length) {
-        return res
-          .status(400)
-          .json({ error: `Missing required field(s): ${missing.join(", ")}` });
+        throw new ValidationError(
+          `Missing required field(s): ${missing.join(", ")}`,
+          "MISSING_FIELD",
+          { fields: missing },
+        );
       }
       const doc = await Model.create(
         beforeCreate ? await beforeCreate(req.body) : req.body,
@@ -105,22 +122,30 @@ function crudFactory(Model, opts = {}) {
 
       res.status(201).json(doc);
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      next(err);
     }
   });
 
   // PUT /:id - update
-  router.put("/:id", async (req, res) => {
+  router.put("/:id", async (req, res, next) => {
     try {
       const before = await Model.findById(req.params.id);
-      if (!before) return res.status(404).json({ error: "Not found" });
+      if (!before) {
+        throw new NotFoundError(`${entityType} not found`, "NOT_FOUND", {
+          id: req.params.id,
+        });
+      }
       const beforeSnapshot = plainSnapshot(before);
 
       const doc = await Model.findByIdAndUpdate(req.params.id, req.body, {
         new: true,
         runValidators: true,
       });
-      if (!doc) return res.status(404).json({ error: "Not found" });
+      if (!doc) {
+        throw new NotFoundError(`${entityType} not found`, "NOT_FOUND", {
+          id: req.params.id,
+        });
+      }
 
       const afterSnapshot = plainSnapshot(doc);
       const changes = diffFields(beforeSnapshot, afterSnapshot);
@@ -137,15 +162,26 @@ function crudFactory(Model, opts = {}) {
 
       res.json(doc);
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      if (err.name === "CastError") {
+        return next(
+          new ValidationError("Invalid id", "INVALID_ID", {
+            id: req.params.id,
+          }),
+        );
+      }
+      next(err);
     }
   });
 
   // DELETE /:id
-  router.delete("/:id", async (req, res) => {
+  router.delete("/:id", async (req, res, next) => {
     try {
       const doc = await Model.findByIdAndDelete(req.params.id);
-      if (!doc) return res.status(404).json({ error: "Not found" });
+      if (!doc) {
+        throw new NotFoundError(`${entityType} not found`, "NOT_FOUND", {
+          id: req.params.id,
+        });
+      }
 
       await logAction({
         req,
@@ -158,7 +194,14 @@ function crudFactory(Model, opts = {}) {
 
       res.json({ success: true });
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      if (err.name === "CastError") {
+        return next(
+          new ValidationError("Invalid id", "INVALID_ID", {
+            id: req.params.id,
+          }),
+        );
+      }
+      next(err);
     }
   });
 

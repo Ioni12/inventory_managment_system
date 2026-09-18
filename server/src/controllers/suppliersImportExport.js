@@ -3,8 +3,9 @@ const mongoose = require("mongoose");
 const Supplier = require("../models/Supplier");
 const { applyStandardSheetStyle } = require("../utils/excelStyle");
 const { logAction, diffFields } = require("../utils/logAction");
+const { ValidationError } = require("../utils/errors");
 
-async function exportSuppliers(req, res) {
+async function exportSuppliers(req, res, next) {
   try {
     const suppliers = await Supplier.find().sort({ name: 1 });
 
@@ -42,7 +43,7 @@ async function exportSuppliers(req, res) {
     await workbook.xlsx.write(res);
     res.end();
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 }
 
@@ -51,8 +52,10 @@ async function exportSuppliers(req, res) {
 // Logging: one 'import-summary' line for the whole run, plus a
 // 'create'/'update' line per Supplier actually touched, with a real
 // before/after diff. All lines share a batchId.
-async function importSuppliers(req, res) {
-  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+async function importSuppliers(req, res, next) {
+  if (!req.file) {
+    return next(new ValidationError("No file uploaded", "NO_FILE"));
+  }
 
   const batchId = new mongoose.Types.ObjectId();
 
@@ -156,7 +159,7 @@ async function importSuppliers(req, res) {
 
     res.json({ created, updated, skipped });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 }
 

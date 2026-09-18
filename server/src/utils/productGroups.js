@@ -1,3 +1,5 @@
+const { ValidationError } = require("./errors");
+
 /**
  * Centralized group merge/move logic for Product.groups[].
  * ALL state-changing operations (assign, return, repair, decommission,
@@ -39,6 +41,14 @@ function pruneEmptyGroups(product) {
 }
 
 /**
+ * Finds which group (if any) on a product already contains a given
+ * serial, searching every group regardless of status/holder.
+ */
+function findGroupWithSerial(product, serial) {
+  return product.groups.find((g) => (g.serials || []).includes(serial));
+}
+
+/**
  * Moves `quantity` units from a source group to a destination
  * (status, currentHolder) pair. Validates the source has enough quantity.
  * Does NOT save — caller must call product.save().
@@ -52,18 +62,26 @@ function pruneEmptyGroups(product) {
  *   is the default/fallback behavior and must stay unaffected by this
  *   parameter's existence. Every listed serial must already be present
  *   in the SOURCE group's serials[]; anything else throws.
- * @throws {Error} if the source group doesn't exist, has insufficient
- *   quantity, has more serials requested than quantity being moved, or
- *   a requested serial isn't present in the source group
+ * @throws {ValidationError} if quantity is invalid, too many serials
+ *   requested, a requested serial isn't present in the source group,
+ *   or the source group doesn't exist / doesn't have enough quantity
+ *   (insufficient stock is a business-rule rejection, not a 404 —
+ *   the product exists, the request just asks for more than is there)
  */
 function moveUnits(product, source, destination, quantity, serials = []) {
   if (!quantity || quantity <= 0) {
-    throw new Error("quantity must be a positive number");
+    throw new ValidationError(
+      "quantity must be a positive number",
+      "INVALID_QUANTITY",
+      { quantity },
+    );
   }
 
   if (serials.length > quantity) {
-    throw new Error(
+    throw new ValidationError(
       `Cannot move ${serials.length} serial(s) with only ${quantity} unit(s)`,
+      "TOO_MANY_SERIALS",
+      { serialsCount: serials.length, quantity },
     );
   }
 
@@ -74,14 +92,24 @@ function moveUnits(product, source, destination, quantity, serials = []) {
   );
 
   if (!sourceGroup || sourceGroup.quantity < quantity) {
-    throw new Error(
+    throw new ValidationError(
       `Cannot move ${quantity} unit(s): source group has only ${sourceGroup ? sourceGroup.quantity : 0} available`,
+      "INSUFFICIENT_STOCK",
+      {
+        requested: quantity,
+        available: sourceGroup ? sourceGroup.quantity : 0,
+        source,
+      },
     );
   }
 
   for (const serial of serials) {
     if (!sourceGroup.serials.includes(serial)) {
-      throw new Error(`Serial "${serial}" not found in source group`);
+      throw new ValidationError(
+        `Serial "${serial}" not found in source group`,
+        "SERIAL_NOT_IN_SOURCE",
+        { serial, source },
+      );
     }
   }
 
@@ -105,18 +133,10 @@ function moveUnits(product, source, destination, quantity, serials = []) {
   pruneEmptyGroups(product);
 }
 
-/**
- * Finds which group (if any) on a product already contains a given
- * serial, searching every group regardless of status/holder.
- */
-function findGroupWithSerial(product, serial) {
-  return product.groups.find((g) => (g.serials || []).includes(serial));
-}
-
 module.exports = {
   findOrCreateGroup,
   pruneEmptyGroups,
+  findGroupWithSerial,
   moveUnits,
   sameHolder,
-  findGroupWithSerial,
 };

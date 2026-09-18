@@ -7,13 +7,13 @@ const Employee = require("../models/Employee");
 const { isValidAssetId, ensureUniqueAssetId } = require("../utils/assetId");
 const {
   findOrCreateGroup,
-  pruneEmptyGroups,
   findGroupWithSerial,
+  pruneEmptyGroups,
 } = require("../utils/productGroups");
 const { buildNePerdorimRows } = require("./nePerdorimController");
 const { applyStandardSheetStyle } = require("../utils/excelStyle");
 const { logAction } = require("../utils/logAction");
-const { STATUS_VALUES } = require("../models/Product");
+const { ValidationError } = require("../utils/errors");
 
 const NE_PERDORIM_COLUMNS = [
   { header: "Nr.", key: "nr", width: 6 },
@@ -28,6 +28,8 @@ const NE_PERDORIM_COLUMNS = [
   { header: "Badge + QR Code", key: "badgeQr", width: 18 },
 ];
 
+const { STATUS_VALUES } = require("../models/Product");
+
 const STATUS_COLORS = {
   "Ne magazine": "FFE5E7EB",
   "Ne perdorim": "FFD1FAE5",
@@ -41,22 +43,22 @@ const STATUS_COLORS = {
 const EXPORT_COLUMNS = [
   { header: "Asset ID", key: "assetId", width: 18 },
   { header: "Kategoria", key: "categoryName", width: 16 },
-  { header: "Serial", key: "serial", width: 18 },
   { header: "Emri", key: "name", width: 22 },
   { header: "Branding", key: "branding", width: 14 },
-  { header: "Sasia", key: "quantity", width: 10 },
   { header: "Njesia", key: "unit", width: 10 },
   { header: "Furnitori", key: "supplierName", width: 16 },
   { header: "Cmimi i blerjes", key: "purchasePrice", width: 14 },
-  { header: "Statusi", key: "status", width: 16 },
   { header: "Pershkrim (opsional)", key: "description", width: 26 },
+  { header: "Statusi", key: "status", width: 16 },
   { header: "Mbajtesi", key: "holderName", width: 20 },
+  { header: "Sasia", key: "quantity", width: 10 },
+  { header: "Serial", key: "serial", width: 18 },
 ];
 
 const IMPORT_SHEET_NAME = "Asete gjendje";
 
 // GET /api/products/export
-async function exportProducts(req, res) {
+async function exportProducts(req, res, next) {
   try {
     const products = await Product.find()
       .populate("category supplier")
@@ -149,7 +151,7 @@ async function exportProducts(req, res) {
     await workbook.xlsx.write(res);
     res.end();
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 }
 
@@ -247,11 +249,14 @@ function resolveStatus(raw) {
 // (since fields are never touched), so instead each existing product
 // touched by the run gets one 'update' log summarizing the quantity/
 // serials added across all its merge rows this run.
-async function importProducts(req, res) {
+async function importProducts(req, res, next) {
   if (!req.file) {
-    return res
-      .status(400)
-      .json({ error: 'No file uploaded (field name must be "file")' });
+    return next(
+      new ValidationError(
+        'No file uploaded (field name must be "file")',
+        "NO_FILE",
+      ),
+    );
   }
 
   const results = { created: 0, updated: 0, noop: [], skipped: [] };
@@ -524,7 +529,7 @@ async function importProducts(req, res) {
 
     res.json(results);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 }
 

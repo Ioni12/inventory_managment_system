@@ -5,6 +5,7 @@ const session = require("express-session");
 const { MongoStore } = require("connect-mongo");
 const connectDB = require("./config/db");
 const requireAuth = require("./middleware/requireAuth");
+const errorHandler = require("./middleware/errorHandler");
 
 const authRoutes = require("./routes/auth");
 const categoriesRoutes = require("./routes/categories");
@@ -62,6 +63,13 @@ app.use("/api/employees", requireAuth, employeesRoutes);
 app.use("/api/logs", requireAuth, logsRoutes);
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
+
+// Centralized error-handling middleware — MUST be mounted last, after
+// every route above. Catches anything passed to next(err) (see
+// utils/errors.js / middleware/errorHandler.js) and anything else
+// unexpected, and turns it into a consistent JSON error response
+// instead of each controller hand-rolling its own status code.
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 

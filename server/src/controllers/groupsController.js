@@ -2,12 +2,17 @@ const Product = require("../models/Product");
 const Employee = require("../models/Employee");
 const { moveUnits } = require("../utils/productGroups");
 const { logAction } = require("../utils/logAction");
+const { NotFoundError, ValidationError } = require("../utils/errors");
 
-async function loadProduct(req, res) {
+// Loads a Product by :productId or throws NotFoundError. No longer
+// touches `res` directly — the caller's catch block (or the
+// centralized errorHandler, via next(err)) decides how to respond.
+async function loadProduct(req) {
   const product = await Product.findById(req.params.productId);
   if (!product) {
-    res.status(404).json({ error: "Product not found" });
-    return null;
+    throw new NotFoundError("Product not found", "PRODUCT_NOT_FOUND", {
+      productId: req.params.productId,
+    });
   }
   return product;
 }
@@ -30,14 +35,16 @@ function productLabel(product) {
 // for a plain assignment, status is typically 'Ne magazine' -> 'Ne perdorim'.
 // `serials` is optional — omitted/empty means a pure count-only move,
 // same as before this feature existed.
-async function assignUnits(req, res) {
+async function assignUnits(req, res, next) {
   try {
-    const product = await loadProduct(req, res);
-    if (!product) return;
+    const product = await loadProduct(req);
 
     const { fromStatus, fromHolder, toHolder, quantity, serials } = req.body;
-    if (!toHolder)
-      return res.status(400).json({ error: "toHolder is required" });
+    if (!toHolder) {
+      throw new ValidationError("toHolder is required", "MISSING_FIELD", {
+        field: "toHolder",
+      });
+    }
 
     moveUnits(
       product,
@@ -70,21 +77,23 @@ async function assignUnits(req, res) {
 
     res.json(product);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    next(err);
   }
 }
 
 // POST /api/products/:productId/groups/return
 // body: { fromHolder, quantity, serials? }
 // Returns `quantity` units from a holder back to unassigned stock.
-async function returnUnits(req, res) {
+async function returnUnits(req, res, next) {
   try {
-    const product = await loadProduct(req, res);
-    if (!product) return;
+    const product = await loadProduct(req);
 
     const { fromHolder, quantity, serials } = req.body;
-    if (!fromHolder)
-      return res.status(400).json({ error: "fromHolder is required" });
+    if (!fromHolder) {
+      throw new ValidationError("fromHolder is required", "MISSING_FIELD", {
+        field: "fromHolder",
+      });
+    }
 
     moveUnits(
       product,
@@ -112,7 +121,7 @@ async function returnUnits(req, res) {
 
     res.json(product);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    next(err);
   }
 }
 
@@ -120,10 +129,9 @@ async function returnUnits(req, res) {
 // body: { fromStatus, fromHolder, quantity, serials? }
 // Sends units to repair. currentHolder is left UNTOUCHED (rule #4) —
 // a unit in repair is still conceptually with its holder (or unassigned).
-async function sendToRepair(req, res) {
+async function sendToRepair(req, res, next) {
   try {
-    const product = await loadProduct(req, res);
-    if (!product) return;
+    const product = await loadProduct(req);
 
     const { fromStatus, fromHolder, quantity, serials } = req.body;
 
@@ -157,17 +165,16 @@ async function sendToRepair(req, res) {
 
     res.json(product);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    next(err);
   }
 }
 
 // POST /api/products/:productId/groups/return-from-repair
 // body: { toStatus, holder, quantity, serials? }
 // Returns units from repair back to a given status. holder unchanged throughout.
-async function returnFromRepair(req, res) {
+async function returnFromRepair(req, res, next) {
   try {
-    const product = await loadProduct(req, res);
-    if (!product) return;
+    const product = await loadProduct(req);
 
     const { toStatus, holder, quantity, serials } = req.body;
 
@@ -198,7 +205,7 @@ async function returnFromRepair(req, res) {
 
     res.json(product);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    next(err);
   }
 }
 
@@ -207,10 +214,9 @@ async function returnFromRepair(req, res) {
 // Decommissions units: status -> Jashte perdorimit AND currentHolder -> null
 // (rule #4 — NOT symmetric with repair; a decommissioned unit isn't
 // coming back to anyone).
-async function decommissionUnits(req, res) {
+async function decommissionUnits(req, res, next) {
   try {
-    const product = await loadProduct(req, res);
-    if (!product) return;
+    const product = await loadProduct(req);
 
     const { fromStatus, fromHolder, quantity, serials } = req.body;
 
@@ -244,19 +250,22 @@ async function decommissionUnits(req, res) {
 
     res.json(product);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    next(err);
   }
 }
 
 // DELETE /api/products/:productId/groups/:groupId
 // Deletes a single group bucket outright (not a quantity move).
-async function deleteGroup(req, res) {
+async function deleteGroup(req, res, next) {
   try {
-    const product = await loadProduct(req, res);
-    if (!product) return;
+    const product = await loadProduct(req);
 
     const group = product.groups.id(req.params.groupId);
-    if (!group) return res.status(404).json({ error: "Group not found" });
+    if (!group) {
+      throw new NotFoundError("Group not found", "GROUP_NOT_FOUND", {
+        groupId: req.params.groupId,
+      });
+    }
 
     const snapshot = {
       status: group.status,
@@ -279,7 +288,7 @@ async function deleteGroup(req, res) {
 
     res.json({ success: true });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    next(err);
   }
 }
 
@@ -289,31 +298,40 @@ async function deleteGroup(req, res) {
 // serial, WITHOUT moving any units between buckets. Uniqueness is
 // enforced per-Product across all of that product's groups[].serials
 // (case-sensitive exact match, first pass).
-async function addSerial(req, res) {
+async function addSerial(req, res, next) {
   try {
-    const product = await loadProduct(req, res);
-    if (!product) return;
+    const product = await loadProduct(req);
 
     const { serial } = req.body;
     if (!serial || !String(serial).trim()) {
-      return res.status(400).json({ error: "serial is required" });
+      throw new ValidationError("serial is required", "MISSING_FIELD", {
+        field: "serial",
+      });
     }
     const value = String(serial).trim();
 
     const group = product.groups.id(req.params.groupId);
-    if (!group) return res.status(404).json({ error: "Group not found" });
+    if (!group) {
+      throw new NotFoundError("Group not found", "GROUP_NOT_FOUND", {
+        groupId: req.params.groupId,
+      });
+    }
 
     const alreadyUsed = product.groups.some((g) => g.serials.includes(value));
     if (alreadyUsed) {
-      return res
-        .status(400)
-        .json({ error: `Serial "${value}" already exists on this product` });
+      throw new ValidationError(
+        `Serial "${value}" already exists on this product`,
+        "SERIAL_ALREADY_EXISTS",
+        { serial: value },
+      );
     }
 
     if (group.serials.length >= group.quantity) {
-      return res.status(400).json({
-        error: `Cannot tag more serials than units in this group (${group.quantity})`,
-      });
+      throw new ValidationError(
+        `Cannot tag more serials than units in this group (${group.quantity})`,
+        "SERIAL_LIMIT_REACHED",
+        { groupQuantity: group.quantity },
+      );
     }
 
     group.serials.push(value);
@@ -334,26 +352,31 @@ async function addSerial(req, res) {
 
     res.json(product);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    next(err);
   }
 }
 
 // DELETE /api/products/:productId/groups/:groupId/serials/:serial
 // Untags a serial from a group without moving any units.
-async function removeSerial(req, res) {
+async function removeSerial(req, res, next) {
   try {
-    const product = await loadProduct(req, res);
-    if (!product) return;
+    const product = await loadProduct(req);
 
     const group = product.groups.id(req.params.groupId);
-    if (!group) return res.status(404).json({ error: "Group not found" });
+    if (!group) {
+      throw new NotFoundError("Group not found", "GROUP_NOT_FOUND", {
+        groupId: req.params.groupId,
+      });
+    }
 
     const { serial } = req.params;
     const idx = group.serials.indexOf(serial);
     if (idx === -1) {
-      return res
-        .status(404)
-        .json({ error: `Serial "${serial}" not found in this group` });
+      throw new NotFoundError(
+        `Serial "${serial}" not found in this group`,
+        "SERIAL_NOT_FOUND",
+        { serial },
+      );
     }
 
     group.serials.splice(idx, 1);
@@ -374,7 +397,7 @@ async function removeSerial(req, res) {
 
     res.json(product);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    next(err);
   }
 }
 

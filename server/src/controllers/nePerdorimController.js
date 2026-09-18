@@ -73,12 +73,12 @@ async function buildNePerdorimRows() {
 }
 
 // GET /api/products/ne-perdorim
-async function getNePerdorim(req, res) {
+async function getNePerdorim(req, res, next) {
   try {
     const rows = await buildNePerdorimRows();
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 }
 

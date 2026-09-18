@@ -1,7 +1,7 @@
 const Log = require("../models/Log");
 
 // GET /api/logs?entityType=Product&action=update&page=1&limit=50
-async function getLogs(req, res) {
+async function getLogs(req, res, next) {
   try {
     const { entityType, action, batchId } = req.query;
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -31,7 +31,7 @@ async function getLogs(req, res) {
       totalPages: Math.ceil(total / limit),
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 }
 

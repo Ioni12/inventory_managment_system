@@ -5,14 +5,15 @@ const Product = require("../models/Product");
 const { buildNePerdorimRows } = require("./nePerdorimController");
 const {
   findOrCreateGroup,
-  moveUnits,
   findGroupWithSerial,
+  moveUnits,
 } = require("../utils/productGroups");
 const { isValidAssetId } = require("../utils/assetId");
 const { applyStandardSheetStyle } = require("../utils/excelStyle");
 const { logAction, diffFields } = require("../utils/logAction");
+const { ValidationError } = require("../utils/errors");
 
-async function exportNePerdorim(req, res) {
+async function exportNePerdorim(req, res, next) {
   try {
     const rows = await buildNePerdorimRows();
 
@@ -60,7 +61,7 @@ async function exportNePerdorim(req, res) {
     await workbook.xlsx.write(res);
     res.end();
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 }
 
@@ -84,8 +85,10 @@ async function exportNePerdorim(req, res) {
 // lines — a 'create'/'update' on the Employee touched, and an 'assign'
 // on the resulting Group action — each with a real diff/detail payload.
 // All lines share a batchId.
-async function importNePerdorim(req, res) {
-  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+async function importNePerdorim(req, res, next) {
+  if (!req.file) {
+    return next(new ValidationError("No file uploaded", "NO_FILE"));
+  }
 
   const batchId = new mongoose.Types.ObjectId();
 
@@ -372,7 +375,7 @@ async function importNePerdorim(req, res) {
       skipped,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 }
 
