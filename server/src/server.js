@@ -39,8 +39,14 @@ app.use(
     cookie: {
       maxAge: 1000 * 60 * 60 * 8, // 8 hours
       httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      // Frontend (Vercel) and backend (Render) are on different domains,
+      // so every request is cross-site. SameSite=Lax silently drops the
+      // cookie on cross-site fetch/XHR (only sent on top-level nav), and
+      // SameSite=None requires Secure=true unconditionally — both are
+      // already HTTPS, so this is safe to hardcode rather than gate on
+      // NODE_ENV.
+      sameSite: "none",
+      secure: true,
     },
   }),
 );
