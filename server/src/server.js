@@ -30,6 +30,13 @@ app.use(
 );
 app.use(express.json());
 
+// Render terminates TLS at its proxy layer; the app itself sees plain
+// HTTP internally. Without this, Express doesn't know the original
+// request was HTTPS, so express-session silently refuses to set the
+// Secure cookie (required since cookie.sameSite is "none") and no
+// session is ever established.
+app.set("trust proxy", 1);
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
