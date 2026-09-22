@@ -63,8 +63,8 @@ export default function GroupUnitsTable({
   );
 
   return (
-    <div className="bg-surface-sunken/60 border-y-2 border-accent-100 pl-3">
-      <div className="bg-surface rounded-app border border-surface-border overflow-hidden my-2 mr-3">
+    <div className="bg-accent-50/40 border-l-4 border-accent-500 pl-4 pr-3 py-3">
+      <div className="bg-surface rounded-app border border-surface-border shadow-sm overflow-hidden">
         <table className="w-full text-left table-fixed">
           <colgroup>
             <col className="w-[28%]" />
