@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { buttonSecondaryClasses, inputClasses } from "../lib/ui";
+import { UserPlus, Undo2, Wrench, Trash2 } from "lucide-react";
+import {
+  buttonSecondaryClasses,
+  inputClasses,
+  actionChipClasses,
+  actionChipDangerClasses,
+} from "../lib/ui";
 
 /**
  * Same status-gated action set as GroupActionsBar's idle row, but scoped
@@ -12,6 +18,9 @@ import { buttonSecondaryClasses, inputClasses } from "../lib/ui";
  * Deliberately does NOT render "Fshi grupin" — deleting the whole group
  * from a single serial's row would delete every other unit in the same
  * bucket too, which doesn't match "acting on this one unit."
+ *
+ * VISUAL: idle-state actions render as icon+label chips (see
+ * GroupActionsBar for the same treatment). Mini-forms unchanged.
  */
 export default function SerialActionsBar({
   serial,
@@ -121,15 +130,18 @@ export default function SerialActionsBar({
     );
   }
 
-  // --- Idle: one-click actions, quantity/serial already implied ---
+  // --- Idle: icon-chip actions, quantity/serial already implied ---
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-center gap-1">
       {(group.status === "Ne magazine" || group.status === "Ne perdorim") && (
         <button
           type="button"
-          className="text-meta text-accent-600 underline"
+          title="Cakto"
+          aria-label="Cakto"
+          className={actionChipClasses}
           onClick={() => setOpen("assign")}
         >
+          <UserPlus size={15} aria-hidden="true" />
           Cakto
         </button>
       )}
@@ -137,7 +149,9 @@ export default function SerialActionsBar({
       {group.status === "Ne perdorim" && hasHolder && (
         <button
           type="button"
-          className="text-meta text-accent-600 underline"
+          title="Kthe në magazinë"
+          aria-label="Kthe në magazinë"
+          className={actionChipClasses}
           onClick={() =>
             onReturn({
               fromHolder: group.currentHolder._id,
@@ -146,14 +160,17 @@ export default function SerialActionsBar({
             })
           }
         >
-          Kthe në magazinë
+          <Undo2 size={15} aria-hidden="true" />
+          Kthe
         </button>
       )}
 
       {(group.status === "Ne magazine" || group.status === "Ne perdorim") && (
         <button
           type="button"
-          className="text-meta text-accent-600 underline"
+          title="Dërgo në riparim"
+          aria-label="Dërgo në riparim"
+          className={actionChipClasses}
           onClick={() =>
             onRepair({
               fromStatus: group.status,
@@ -163,16 +180,20 @@ export default function SerialActionsBar({
             })
           }
         >
-          Dërgo në riparim
+          <Wrench size={15} aria-hidden="true" />
+          Riparim
         </button>
       )}
 
       {group.status === "Ne riparim" && (
         <button
           type="button"
-          className="text-meta text-accent-600 underline"
+          title="Kthe nga riparimi"
+          aria-label="Kthe nga riparimi"
+          className={actionChipClasses}
           onClick={() => setOpen("return-from-repair")}
         >
+          <Undo2 size={15} aria-hidden="true" />
           Kthe nga riparimi
         </button>
       )}
@@ -180,7 +201,9 @@ export default function SerialActionsBar({
       {group.status !== "Jashte perdorimit" && (
         <button
           type="button"
-          className="text-meta text-status-danger underline"
+          title="Nxirre jashtë përdorimit"
+          aria-label="Nxirre jashtë përdorimit"
+          className={actionChipDangerClasses}
           onClick={() => {
             if (
               window.confirm(
@@ -195,7 +218,8 @@ export default function SerialActionsBar({
               });
           }}
         >
-          Nxirre jashtë përdorimit
+          <Trash2 size={15} aria-hidden="true" />
+          Nxirre
         </button>
       )}
     </div>

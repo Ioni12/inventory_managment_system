@@ -32,3 +32,22 @@ export const buttonSecondaryClasses =
   "rounded-app border border-surface-border bg-surface px-4 py-2 text-body " +
   "font-medium text-gray-700 transition-colors hover:bg-surface-sunken " +
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-800";
+
+// Small icon+label chip for row-level quick actions (GroupActionsBar,
+// SerialActionsBar idle state). Neutral by default; pass the danger
+// variant string for destructive actions (decommission, delete).
+export const actionChipClasses =
+  "inline-flex items-center gap-1 rounded-app px-2 py-1 text-meta " +
+  "text-gray-600 hover:bg-surface-sunken hover:text-gray-900 transition-colors " +
+  "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent-600";
+
+export const actionChipDangerClasses =
+  "inline-flex items-center gap-1 rounded-app px-2 py-1 text-meta " +
+  "text-status-danger hover:bg-status-danger/10 transition-colors " +
+  "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-status-danger";
+
+// Status badge for the flat group-units table (GroupUnitsTable). Pass a
+// bg/text pair per status; colorClasses is a Tailwind class string like
+// "bg-accent-50 text-accent-700".
+export const statusBadgeClasses =
+  "inline-block text-meta font-medium px-2 py-0.5 rounded-app";

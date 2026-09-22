@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { buttonSecondaryClasses, inputClasses } from "../lib/ui";
+import { UserPlus, Undo2, Wrench, Trash2 } from "lucide-react";
+import {
+  buttonSecondaryClasses,
+  inputClasses,
+  actionChipClasses,
+  actionChipDangerClasses,
+} from "../lib/ui";
 
 /**
  * Rule #4: quick inline controls, not a full modal per action. Each of the
@@ -24,6 +30,12 @@ import { buttonSecondaryClasses, inputClasses } from "../lib/ui";
  * NOTE: "Kthe në magazinë" (return) is still a one-click action with no
  * mini-form — it returns the full anonymous-remainder quantity
  * immediately. Predates this feature, interaction model unchanged here.
+ *
+ * VISUAL: idle-state actions render as icon+label chips (not underlined
+ * text links) to cut visual weight in dense rows. Every chip keeps a
+ * native title tooltip and aria-label for legibility on first use and
+ * for screen readers. Mini-forms (assign/repair/return-from-repair/
+ * decommission) are unchanged — same inline expand-below-row behavior.
  */
 export default function GroupActionsBar({
   group,
@@ -33,7 +45,6 @@ export default function GroupActionsBar({
   onRepair,
   onReturnFromRepair,
   onDecommission,
-  onDeleteGroup,
 }) {
   const [open, setOpen] = useState(null); // null | 'assign' | 'repair' | 'return-from-repair' | 'decommission'
   const [quantity, setQuantity] = useState(1);
@@ -222,15 +233,18 @@ export default function GroupActionsBar({
     );
   }
 
-  // --- Idle: show the buttons valid for this group's current status ---
+  // --- Idle: show the icon-chip actions valid for this group's status ---
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-center gap-1">
       {(group.status === "Ne magazine" || group.status === "Ne perdorim") && (
         <button
           type="button"
-          className="text-meta text-accent-600 underline"
+          title="Cakto"
+          aria-label="Cakto"
+          className={actionChipClasses}
           onClick={() => setOpen("assign")}
         >
+          <UserPlus size={15} aria-hidden="true" />
           Cakto
         </button>
       )}
@@ -238,31 +252,40 @@ export default function GroupActionsBar({
       {group.status === "Ne perdorim" && hasHolder && (
         <button
           type="button"
-          className="text-meta text-accent-600 underline"
+          title="Kthe në magazinë"
+          aria-label="Kthe në magazinë"
+          className={actionChipClasses}
           onClick={() =>
             onReturn({ fromHolder: group.currentHolder._id, quantity: maxQty })
           }
         >
-          Kthe në magazinë
+          <Undo2 size={15} aria-hidden="true" />
+          Kthe
         </button>
       )}
 
       {(group.status === "Ne magazine" || group.status === "Ne perdorim") && (
         <button
           type="button"
-          className="text-meta text-accent-600 underline"
+          title="Dërgo në riparim"
+          aria-label="Dërgo në riparim"
+          className={actionChipClasses}
           onClick={() => setOpen("repair")}
         >
-          Dërgo në riparim
+          <Wrench size={15} aria-hidden="true" />
+          Riparim
         </button>
       )}
 
       {group.status === "Ne riparim" && (
         <button
           type="button"
-          className="text-meta text-accent-600 underline"
+          title="Kthe nga riparimi"
+          aria-label="Kthe nga riparimi"
+          className={actionChipClasses}
           onClick={() => setOpen("return-from-repair")}
         >
+          <Undo2 size={15} aria-hidden="true" />
           Kthe nga riparimi
         </button>
       )}
@@ -270,27 +293,15 @@ export default function GroupActionsBar({
       {group.status !== "Jashte perdorimit" && (
         <button
           type="button"
-          className="text-meta text-status-danger underline"
+          title="Nxirre jashtë përdorimit"
+          aria-label="Nxirre jashtë përdorimit"
+          className={actionChipDangerClasses}
           onClick={() => setOpen("decommission")}
         >
-          Nxirre jashtë përdorimit
+          <Trash2 size={15} aria-hidden="true" />
+          Nxirre
         </button>
       )}
-
-      <button
-        type="button"
-        className="text-meta text-gray-400 underline"
-        onClick={() => {
-          if (
-            window.confirm(
-              "Të fshihet ky grup? Ky veprim heq të dhënat përfundimisht.",
-            )
-          )
-            onDeleteGroup(group._id);
-        }}
-      >
-        Fshi grupin
-      </button>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { api } from "../../lib/api";
 import Modal from "../Modal";
 import ImportResultPanel from "./ImportResultPanel";
@@ -21,9 +21,19 @@ export default function ProductsTab({ searchQuery = "" }) {
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
+  // Which product's group table is expanded. Lifted up from ProductTable
+  // so it survives background refetches — loadAll() running again after
+  // an assign/repair/etc. must not collapse what the user has open.
+  const [expandedId, setExpandedId] = useState(null);
+  // True only after the very first load resolves. loadAll() runs again
+  // after every mutation (assign, repair, add serial, ...), but the
+  // full-page "Duke ngarkuar…" state should only show once — otherwise
+  // ProductTable unmounts on every background refetch and any state
+  // that used to live inside it (like expandedId did) gets wiped.
+  const hasLoadedOnce = useRef(false);
 
   const loadAll = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoadedOnce.current) setLoading(true);
     setError("");
     try {
       const [prods, cats, sups, emps] = await Promise.all([
@@ -40,6 +50,7 @@ export default function ProductsTab({ searchQuery = "" }) {
       setError(err.message || "Ngarkimi i produkteve dështoi");
     } finally {
       setLoading(false);
+      hasLoadedOnce.current = true;
     }
   }, []);
 
@@ -157,11 +168,6 @@ export default function ProductsTab({ searchQuery = "" }) {
           .post(`/products/${productId}/groups/decommission`, body)
           .then(loadAll)
           .catch(groupActionError("Nxjerrja jashtë përdorimit dështoi")),
-      onDeleteGroup: (groupId) =>
-        api
-          .delete(`/products/${productId}/groups/${groupId}`)
-          .then(loadAll)
-          .catch(groupActionError("Fshirja e grupit dështoi")),
     };
   }
 
@@ -227,6 +233,9 @@ export default function ProductsTab({ searchQuery = "" }) {
           onEdit={(p) => setModalMode({ edit: p })}
           onDelete={handleDelete}
           groupActionsFor={groupActionsFor}
+          onSerialsChanged={loadAll}
+          expandedId={expandedId}
+          onToggleExpanded={setExpandedId}
         />
       )}
 

@@ -1,6 +1,6 @@
-import { Fragment, useState } from "react";
+import { Fragment } from "react";
 import StockBadge from "../../StockBadge";
-import StatusSection from "./StatusSection";
+import GroupUnitsTable from "./GroupUnitsTable";
 import { cardClasses } from "../../../lib/ui";
 
 /**
@@ -9,6 +9,10 @@ import { cardClasses } from "../../../lib/ui";
  * breakdown (status, holder, quantity, actions) inline — no navigating
  * elsewhere to answer "do we have enough / who has these."
  * Rule #10: accordion-style expansion works the same on mobile cards.
+ *
+ * Expanded content is now a flat table (GroupUnitsTable, one row per
+ * unit with status as its own column) rather than status-bucketed
+ * cards — see GroupUnitsTable for the row layout.
  */
 export default function ProductTable({
   products,
@@ -17,11 +21,11 @@ export default function ProductTable({
   onDelete,
   groupActionsFor,
   onSerialsChanged,
+  expandedId,
+  onToggleExpanded,
 }) {
-  const [expandedId, setExpandedId] = useState(null);
-
   function toggle(id) {
-    setExpandedId((prev) => (prev === id ? null : id));
+    onToggleExpanded((prev) => (prev === id ? null : id));
   }
 
   return (
@@ -121,7 +125,7 @@ export default function ProductTable({
                             Ky produkt nuk ka grupe ende.
                           </p>
                         ) : (
-                          <StatusSection
+                          <GroupUnitsTable
                             productId={p._id}
                             groups={p.groups}
                             employees={employees}
@@ -193,13 +197,15 @@ export default function ProductTable({
                     Ky produkt nuk ka grupe ende.
                   </p>
                 ) : (
-                  <StatusSection
-                    productId={p._id}
-                    groups={p.groups}
-                    employees={employees}
-                    actions={groupActionsFor(p._id)}
-                    onSerialsChanged={onSerialsChanged}
-                  />
+                  <div className="overflow-x-auto">
+                    <GroupUnitsTable
+                      productId={p._id}
+                      groups={p.groups}
+                      employees={employees}
+                      actions={groupActionsFor(p._id)}
+                      onSerialsChanged={onSerialsChanged}
+                    />
+                  </div>
                 ))}
             </div>
           );
