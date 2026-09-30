@@ -1,7 +1,9 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { api } from "../../lib/api";
+import Modal from "../Modal";
 import NePerdorimRowActions from "./NePerdorimRowActions";
 import ProductImportExport from "./products/ProductImportExport";
+import { EMPLOYEE_FIELDS } from "./employeeFields";
 import { cardClasses, errorTextClasses } from "../../lib/ui";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -10,10 +12,11 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
  * Editable view of who currently holds what. Reassign/return reuse the
  * same group-action endpoints as ProductsTab's GroupActionsBar, called
  * directly using each row's productId/groupId/holderId — no separate
- * lookup into the Products tab needed. Employee contact fields (email,
- * phone, badge/QR) are NOT editable here; those belong to the Employees
- * tab. No optimistic updates — every successful action refetches this
- * tab's full list, since the backend gives no optimistic-update contract.
+ * lookup into the Products tab needed. "Ndrysho" on a row edits that
+ * row's EMPLOYEE record (same form as the Employees tab), so it changes
+ * every row held by that person. No optimistic updates — every
+ * successful action refetches this tab's full list, since the backend
+ * gives no optimistic-update contract.
  *
  * SERIALS: backend now flattens each group into one row per tagged
  * serial plus one row for the anonymous remainder (see
@@ -29,9 +32,13 @@ export default function NePerdorimTab() {
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
+  const [editingEmployee, setEditingEmployee] = useState(null);
+  // Full-page loading state only on the very first load, so background
+  // refetches after an action don't blank the tab.
+  const hasLoadedOnce = useRef(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoadedOnce.current) setLoading(true);
     setError("");
     try {
       const [neP, emps] = await Promise.all([
@@ -44,12 +51,40 @@ export default function NePerdorimTab() {
       setError(err.message || "Ngarkimi i të dhënave dështoi");
     } finally {
       setLoading(false);
+      hasLoadedOnce.current = true;
     }
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Find the employee behind a row: by id if the row carries one,
+  // otherwise by matching the displayed full name.
+  function findEmployee(row) {
+    const id = row.holderId ?? row.employeeId;
+    if (id) return employees.find((e) => e._id === id) ?? null;
+    return (
+      employees.find(
+        (e) => `${e.firstName} ${e.lastName}` === row.emerMbiemer,
+      ) ?? null
+    );
+  }
+
+  function openEdit(row) {
+    const emp = findEmployee(row);
+    if (!emp) {
+      setError("Punonjësi nuk u gjet.");
+      return;
+    }
+    setEditingEmployee(emp);
+  }
+
+  async function handleEditEmployee(id, values) {
+    await api.put(`/employees/${id}`, values);
+    setEditingEmployee(null);
+    await load();
+  }
 
   // Same fetch-a-blob pattern as ProductsTab's export handler — swap for
   // an api.js helper if one already exists there (e.g. api.downloadFile).
@@ -289,11 +324,20 @@ export default function NePerdorimTab() {
                       {r.badgeQr || "—"}
                     </td>
                     <td className="px-4 py-2">
-                      <NePerdorimRowActions
-                        row={r}
-                        employees={employees}
-                        {...actionsFor(r)}
-                      />
+                      <div className="flex flex-col items-start gap-1">
+                        <NePerdorimRowActions
+                          row={r}
+                          employees={employees}
+                          {...actionsFor(r)}
+                        />
+                        <button
+                          type="button"
+                          className="text-meta text-accent-600 underline"
+                          onClick={() => openEdit(r)}
+                        >
+                          Ndrysho
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -327,15 +371,35 @@ export default function NePerdorimTab() {
                 <p className="text-body text-gray-600 mb-3">
                   {r.badgeQr || "—"}
                 </p>
-                <NePerdorimRowActions
-                  row={r}
-                  employees={employees}
-                  {...actionsFor(r)}
-                />
+                <div className="flex flex-col items-start gap-1">
+                  <NePerdorimRowActions
+                    row={r}
+                    employees={employees}
+                    {...actionsFor(r)}
+                  />
+                  <button
+                    type="button"
+                    className="text-meta text-accent-600 underline"
+                    onClick={() => openEdit(r)}
+                  >
+                    Ndrysho
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         </>
+      )}
+
+      {editingEmployee && (
+        <Modal
+          title="Ndrysho punonjësin"
+          fields={EMPLOYEE_FIELDS}
+          initialValues={editingEmployee}
+          onSubmit={(values) => handleEditEmployee(editingEmployee._id, values)}
+          onClose={() => setEditingEmployee(null)}
+          submitLabel="Ruaj"
+        />
       )}
     </div>
   );

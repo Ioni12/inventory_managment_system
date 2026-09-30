@@ -194,12 +194,6 @@ function GroupRows({ productId, group, employees, actions, onSerialsChanged }) {
           </td>
           <td className="px-4 py-2 text-right">
             <div className="flex items-center justify-end gap-1 flex-wrap">
-              <GroupActionsBar
-                group={group}
-                employees={employees}
-                {...actions}
-              />
-              <span className="w-px h-4 bg-surface-border mx-1" />
               {!addingSerialOpen ? (
                 <button
                   type="button"
@@ -245,6 +239,14 @@ function GroupRows({ productId, group, employees, actions, onSerialsChanged }) {
                   </button>
                 </form>
               )}
+
+              <span className="w-px h-4 bg-surface-border mx-1" />
+
+              <GroupActionsBar
+                group={group}
+                employees={employees}
+                {...actions}
+              />
             </div>
             {addError && (
               <p className={`${errorTextClasses} text-right`}>{addError}</p>

@@ -1,47 +1,24 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { api } from "../../lib/api";
 import Modal from "../Modal";
+import { EMPLOYEE_FIELDS } from "./employeeFields";
 import {
   buttonPrimaryClasses,
   cardClasses,
   errorTextClasses,
 } from "../../lib/ui";
 
-const FIELDS = [
-  { name: "firstName", label: "Emri", required: true },
-  { name: "lastName", label: "Mbiemri", required: true },
-  { name: "email", label: "Email", type: "email", required: true },
-  {
-    name: "emails",
-    label: "Email shtesë",
-    type: "list",
-    itemType: "email",
-    addLabel: "+ Shto email",
-  },
-  { name: "company", label: "Kompania" },
-  { name: "department", label: "Departamenti" },
-  { name: "phone", label: "Telefoni" },
-  { name: "badgeQr", label: "Badge / QR Code" },
-  {
-    name: "role",
-    label: "Roli",
-    type: "select",
-    required: true,
-    options: [
-      { value: "admin", label: "Admin" },
-      { value: "user", label: "Përdorues" },
-    ],
-  },
-];
-
 export default function EmployeesTab() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [modalMode, setModalMode] = useState(null);
+  // Full-page loading state only on the very first load, so background
+  // refetches after an action don't blank the tab.
+  const hasLoadedOnce = useRef(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoadedOnce.current) setLoading(true);
     setError("");
     try {
       setEmployees(await api.get("/employees"));
@@ -49,6 +26,7 @@ export default function EmployeesTab() {
       setError(err.message || "Ngarkimi i punonjësve dështoi");
     } finally {
       setLoading(false);
+      hasLoadedOnce.current = true;
     }
   }, []);
 
@@ -191,7 +169,7 @@ export default function EmployeesTab() {
       {modalMode === "create" && (
         <Modal
           title="Shto punonjës"
-          fields={FIELDS}
+          fields={EMPLOYEE_FIELDS}
           initialValues={{}}
           onSubmit={handleCreate}
           onClose={() => setModalMode(null)}
@@ -202,7 +180,7 @@ export default function EmployeesTab() {
       {modalMode?.edit && (
         <Modal
           title="Ndrysho punonjësin"
-          fields={FIELDS}
+          fields={EMPLOYEE_FIELDS}
           initialValues={modalMode.edit}
           onSubmit={(values) => handleEdit(modalMode.edit._id, values)}
           onClose={() => setModalMode(null)}

@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import Header from "./Header";
 import TabBar, { TAB_CONFIG } from "./TabBar";
 import ProductsTab from "./tabs/ProductsTab";
+import AllProductsTab from "./tabs/AllProductsTab";
 import CatalogTab from "./tabs/CatalogTab";
 import EmployeesTab from "./tabs/EmployeesTab";
 import NePerdorimTab from "./tabs/NePerdorimTab";
@@ -31,6 +32,8 @@ export default function MainLayout() {
       <main className="p-6">
         {activeTab === "products" ? (
           <ProductsTab searchQuery={searchQuery} />
+        ) : activeTab === "all-products" ? (
+          <AllProductsTab searchQuery={searchQuery} />
         ) : activeTab === "ne-perdorim" ? (
           <NePerdorimTab />
         ) : activeTab === "catalog" && user.role === "admin" ? (

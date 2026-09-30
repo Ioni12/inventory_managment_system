@@ -21,6 +21,7 @@ import {
  *
  * VISUAL: idle-state actions render as icon+label chips (see
  * GroupActionsBar for the same treatment). Mini-forms unchanged.
+ * ORDER: return actions first, then Cakto, Riparim, Nxirre (always last).
  */
 export default function SerialActionsBar({
   serial,
@@ -133,19 +134,7 @@ export default function SerialActionsBar({
   // --- Idle: icon-chip actions, quantity/serial already implied ---
   return (
     <div className="flex flex-wrap items-center gap-1">
-      {(group.status === "Ne magazine" || group.status === "Ne perdorim") && (
-        <button
-          type="button"
-          title="Cakto"
-          aria-label="Cakto"
-          className={actionChipClasses}
-          onClick={() => setOpen("assign")}
-        >
-          <UserPlus size={15} aria-hidden="true" />
-          Cakto
-        </button>
-      )}
-
+      {/* Return actions first */}
       {group.status === "Ne perdorim" && hasHolder && (
         <button
           type="button"
@@ -162,6 +151,33 @@ export default function SerialActionsBar({
         >
           <Undo2 size={15} aria-hidden="true" />
           Kthe
+        </button>
+      )}
+
+      {group.status === "Ne riparim" && (
+        <button
+          type="button"
+          title="Kthe nga riparimi"
+          aria-label="Kthe nga riparimi"
+          className={actionChipClasses}
+          onClick={() => setOpen("return-from-repair")}
+        >
+          <Undo2 size={15} aria-hidden="true" />
+          Kthe nga riparimi
+        </button>
+      )}
+
+      {/* Then Cakto, Riparim, Nxirre */}
+      {(group.status === "Ne magazine" || group.status === "Ne perdorim") && (
+        <button
+          type="button"
+          title="Cakto"
+          aria-label="Cakto"
+          className={actionChipClasses}
+          onClick={() => setOpen("assign")}
+        >
+          <UserPlus size={15} aria-hidden="true" />
+          Cakto
         </button>
       )}
 
@@ -182,19 +198,6 @@ export default function SerialActionsBar({
         >
           <Wrench size={15} aria-hidden="true" />
           Riparim
-        </button>
-      )}
-
-      {group.status === "Ne riparim" && (
-        <button
-          type="button"
-          title="Kthe nga riparimi"
-          aria-label="Kthe nga riparimi"
-          className={actionChipClasses}
-          onClick={() => setOpen("return-from-repair")}
-        >
-          <Undo2 size={15} aria-hidden="true" />
-          Kthe nga riparimi
         </button>
       )}
 

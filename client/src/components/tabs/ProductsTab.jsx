@@ -172,14 +172,16 @@ export default function ProductsTab({ searchQuery = "" }) {
   }
 
   // Rule #8: typo-tolerant global search — client-side, every keystroke,
-  // across Asset ID, product name, and branding.
+  // across Asset ID, product name, branding, and every serial number in
+  // the product's groups.
   const query = searchQuery.trim().toLowerCase();
   const filteredProducts = query
-    ? products.filter((p) =>
-        [p.assetId, p.name, p.branding]
+    ? products.filter((p) => {
+        const serials = (p.groups ?? []).flatMap((g) => g.serials ?? []);
+        return [p.assetId, p.name, p.branding, ...serials]
           .filter(Boolean)
-          .some((field) => field.toLowerCase().includes(query)),
-      )
+          .some((field) => field.toLowerCase().includes(query));
+      })
     : products;
 
   if (loading) {

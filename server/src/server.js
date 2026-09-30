@@ -17,6 +17,8 @@ const logsRoutes = require("./routes/logs");
 
 const app = express();
 
+const isProd = process.env.NODE_ENV === "production";
+
 const allowedOrigins = (process.env.CLIENT_ORIGIN || "")
   .split(",")
   .map((o) => o.trim())
@@ -30,12 +32,10 @@ app.use(
 );
 app.use(express.json());
 
-// Render terminates TLS at its proxy layer; the app itself sees plain
-// HTTP internally. Without this, Express doesn't know the original
-// request was HTTPS, so express-session silently refuses to set the
-// Secure cookie (required since cookie.sameSite is "none") and no
-// session is ever established.
-app.set("trust proxy", 1);
+// In production (Render), TLS terminates at the proxy, so Express must
+// trust it to know the original request was HTTPS. Locally there is no
+// proxy, so this stays off.
+if (isProd) app.set("trust proxy", 1);
 
 app.use(
   session({
@@ -46,14 +46,12 @@ app.use(
     cookie: {
       maxAge: 1000 * 60 * 60 * 8, // 8 hours
       httpOnly: true,
-      // Frontend (Vercel) and backend (Render) are on different domains,
-      // so every request is cross-site. SameSite=Lax silently drops the
-      // cookie on cross-site fetch/XHR (only sent on top-level nav), and
-      // SameSite=None requires Secure=true unconditionally — both are
-      // already HTTPS, so this is safe to hardcode rather than gate on
-      // NODE_ENV.
-      sameSite: "none",
-      secure: true,
+      // Prod: frontend (Vercel) and backend (Render) are different sites,
+      // so the cookie must be SameSite=None + Secure.
+      // Dev: localhost:5173 and localhost:5000 are same-site over plain
+      // HTTP, so Lax works and Secure must be off.
+      sameSite: isProd ? "none" : "lax",
+      secure: isProd,
     },
   }),
 );
