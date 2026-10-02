@@ -29,9 +29,9 @@ export default function ProductImportExport({
   return (
     <div className="flex items-center gap-3">
       <ExcelActionButton
-        label="Eksporto në Excel"
-        busyLabel="Duke eksportuar…"
-        doneLabel="Ruajtur"
+        label="Export Data"
+        busyLabel="Exporting"
+        doneLabel="Exported"
         color="#107C41"
         hoverColor="#0C6633"
         busy={exporting}
@@ -48,9 +48,9 @@ export default function ProductImportExport({
         id="products-import-input"
       />
       <ExcelActionButton
-        label="Importo nga Excel"
-        busyLabel="Duke importuar…"
-        doneLabel="Importuar"
+        label="Import Data"
+        busyLabel="Importing"
+        doneLabel="Imported"
         color="#0F6CBD"
         hoverColor="#0B5AA0"
         busy={importing}

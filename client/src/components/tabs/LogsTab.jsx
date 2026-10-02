@@ -283,7 +283,7 @@ export default function LogsTab() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <h2 className="text-title text-gray-900">Regjistri i veprimeve</h2>
+        <h2 className="text-title text-gray-900">Activity Log</h2>
         <div className="flex items-center gap-3">
           <select
             className={inputClasses}

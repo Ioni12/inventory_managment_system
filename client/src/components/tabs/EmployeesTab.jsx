@@ -65,12 +65,12 @@ export default function EmployeesTab() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-title text-gray-900">Punonjësit</h2>
+        <h2 className="text-title text-gray-900">Employees</h2>
         <button
           className={buttonPrimaryClasses}
           onClick={() => setModalMode("create")}
         >
-          Shto punonjës
+          Add Employee
         </button>
       </div>
 
@@ -91,7 +91,7 @@ export default function EmployeesTab() {
                   scope="col"
                   className="px-4 py-2 text-meta font-medium text-gray-500"
                 >
-                  Emri
+                  Name Surname
                 </th>
                 <th
                   scope="col"
@@ -103,19 +103,19 @@ export default function EmployeesTab() {
                   scope="col"
                   className="px-4 py-2 text-meta font-medium text-gray-500"
                 >
-                  Kompania
+                  Company
                 </th>
                 <th
                   scope="col"
                   className="px-4 py-2 text-meta font-medium text-gray-500"
                 >
-                  Departamenti
+                  Departament
                 </th>
                 <th
                   scope="col"
                   className="px-4 py-2 text-meta font-medium text-gray-500"
                 >
-                  Roli
+                  Role
                 </th>
                 <th scope="col" className="px-4 py-2">
                   <span className="sr-only">Veprime</span>
@@ -149,14 +149,14 @@ export default function EmployeesTab() {
                       className="text-meta text-accent-600 underline mr-3"
                       onClick={() => setModalMode({ edit: e })}
                     >
-                      Ndrysho
+                      Edit
                     </button>
                     <button
                       type="button"
                       className="text-meta text-status-danger underline"
                       onClick={() => handleDelete(e._id)}
                     >
-                      Fshi
+                      Delete
                     </button>
                   </td>
                 </tr>
@@ -168,7 +168,7 @@ export default function EmployeesTab() {
 
       {modalMode === "create" && (
         <Modal
-          title="Shto punonjës"
+          title="Add Employee"
           fields={EMPLOYEE_FIELDS}
           initialValues={{}}
           onSubmit={handleCreate}

@@ -133,7 +133,7 @@ export default function FurnitoreTab() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <h2 className="text-title text-gray-900">Furnitorët</h2>
+        <h2 className="text-title text-gray-900">Suppliers</h2>
         <div className="flex items-center gap-3">
           <ProductImportExport
             exporting={exporting}
@@ -194,19 +194,19 @@ export default function FurnitoreTab() {
                     scope="col"
                     className="px-4 py-2 text-meta font-medium text-gray-500"
                   >
-                    Emer subjekti
+                    Business Name
                   </th>
                   <th
                     scope="col"
                     className="px-4 py-2 text-meta font-medium text-gray-500"
                   >
-                    Emer Mbiemer
+                    Contact Person
                   </th>
                   <th
                     scope="col"
                     className="px-4 py-2 text-meta font-medium text-gray-500"
                   >
-                    Telefon
+                    Number
                   </th>
                   <th
                     scope="col"
@@ -255,14 +255,14 @@ export default function FurnitoreTab() {
                             setModalState({ mode: "edit", supplier: s })
                           }
                         >
-                          Ndrysho
+                          Edit
                         </button>
                         <button
                           type="button"
                           className="text-meta text-status-danger hover:underline"
                           onClick={() => handleDelete(s)}
                         >
-                          Fshi
+                          Delete
                         </button>
                       </div>
                     </td>

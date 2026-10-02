@@ -168,7 +168,7 @@ export default function NePerdorimTab() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <h2 className="text-title text-gray-900">Në Përdorim</h2>
+        <h2 className="text-title text-gray-900">In Use</h2>
         <ProductImportExport
           exporting={exporting}
           importing={importing}

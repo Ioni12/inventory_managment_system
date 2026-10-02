@@ -44,19 +44,19 @@ export default function ProductTable({
                 scope="col"
                 className="px-4 py-2 text-meta font-medium text-gray-500"
               >
-                Emri
+                Model
               </th>
               <th
                 scope="col"
                 className="px-4 py-2 text-meta font-medium text-gray-500"
               >
-                Kategoria
+                Category
               </th>
               <th
                 scope="col"
                 className="px-4 py-2 text-meta font-medium text-gray-500"
               >
-                Stoku
+                Stock
               </th>
               <th scope="col" className="px-4 py-2">
                 <span className="sr-only">Veprime</span>
@@ -99,21 +99,21 @@ export default function ProductTable({
                         className="text-meta text-accent-600 underline mr-3"
                         onClick={() => toggle(p._id)}
                       >
-                        {isOpen ? "Mbyll grupet" : "Shiko grupet"}
+                        {isOpen ? "Less Info" : "More Info"}
                       </button>
                       <button
                         type="button"
                         className="text-meta text-accent-600 underline mr-3"
                         onClick={() => onEdit(p)}
                       >
-                        Ndrysho
+                        Edit
                       </button>
                       <button
                         type="button"
                         className="text-meta text-status-danger underline"
                         onClick={() => onDelete(p._id)}
                       >
-                        Fshi
+                        Delete
                       </button>
                     </td>
                   </tr>

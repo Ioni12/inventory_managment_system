@@ -48,16 +48,16 @@ const getDescription = (p) => p.description;
 // Same columns as the "Asete gjendje" sheet, in the same order.
 const COLUMNS = [
   "Asset ID",
-  "Kategoria",
-  "Nr. Serial",
-  "Marka/modeli",
+  "Category",
+  "Serial Number",
+  "Model",
   "Branding",
-  "Stok",
-  "Njesia",
-  "Furnitori",
-  "Cmimi i blerjes",
-  "Statusi",
-  "Pershkrim",
+  "Stock",
+  "Unit",
+  "Suplier",
+  "Purchase Price",
+  "Status",
+  "Description",
 ];
 
 // One row per serial, plus one per group for the unserialized remainder.
@@ -125,7 +125,7 @@ export default function AllProductsTab({ searchQuery = "" }) {
 
   return (
     <div>
-      <h2 className="text-title text-gray-900 mb-4">Asete gjendje</h2>
+      <h2 className="text-title text-gray-900 mb-4">All Products</h2>
 
       {error && (
         <p role="alert" className={errorTextClasses}>

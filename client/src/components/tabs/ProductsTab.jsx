@@ -191,7 +191,7 @@ export default function ProductsTab({ searchQuery = "" }) {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h2 className="text-title text-gray-900">Produktet</h2>
+        <h2 className="text-title text-gray-900">Products</h2>
 
         <div className="flex flex-wrap items-center gap-3">
           <ProductImportExport
@@ -204,7 +204,7 @@ export default function ProductsTab({ searchQuery = "" }) {
             className={buttonPrimaryClasses}
             onClick={() => setModalMode("create")}
           >
-            Shto produkt
+            New Product
           </button>
         </div>
       </div>
@@ -243,18 +243,18 @@ export default function ProductsTab({ searchQuery = "" }) {
 
       {modalMode === "create" && (
         <Modal
-          title="Shto produkt"
+          title="Add Product"
           fields={fields}
           initialValues={PRODUCT_CREATE_DEFAULTS}
           onSubmit={handleCreate}
           onClose={() => setModalMode(null)}
-          submitLabel="Shto"
+          submitLabel="Add"
         />
       )}
 
       {modalMode?.edit && (
         <Modal
-          title={`Ndrysho produktin · ${modalMode.edit.assetId}`}
+          title={`Change Product · ${modalMode.edit.assetId}`}
           fields={fields}
           initialValues={{
             ...modalMode.edit,
@@ -263,7 +263,7 @@ export default function ProductsTab({ searchQuery = "" }) {
           }}
           onSubmit={(values) => handleEdit(modalMode.edit._id, values)}
           onClose={() => setModalMode(null)}
-          submitLabel="Ruaj"
+          submitLabel="Save"
         />
       )}
     </div>

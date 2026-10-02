@@ -190,7 +190,7 @@ function EntitySection({ config }) {
 export default function CatalogTab() {
   return (
     <div>
-      <h2 className="text-title text-gray-900 mb-6">Catalog</h2>
+      <h2 className="text-title text-gray-900 mb-6">Category</h2>
       <EntitySection config={ENTITIES.categories} />
     </div>
   );

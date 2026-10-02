@@ -4,9 +4,9 @@
 export const TAB_CONFIG = [
   { id: "products", label: "Products", roles: ["admin", "user"] },
   { id: "all-products", label: "All Products", roles: ["admin", "user"] },
-  { id: "ne-perdorim", label: "Ne Perdorim", roles: ["admin", "user"] },
-  { id: "catalog", label: "Catalog", roles: ["admin"] },
-  { id: "furnitore", label: "Furnitore", roles: ["admin"] },
+  { id: "ne-perdorim", label: "In Use", roles: ["admin", "user"] },
+  { id: "catalog", label: "Category", roles: ["admin"] },
+  { id: "furnitore", label: "Suppliers", roles: ["admin"] },
   { id: "employees", label: "Employees", roles: ["admin"] },
   { id: "logs", label: "Logs", roles: ["admin"] },
 ];
