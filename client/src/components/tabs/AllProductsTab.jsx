@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { api } from "../../lib/api";
 import {
   cardClasses,
   errorTextClasses,
   statusBadgeClasses,
 } from "../../lib/ui";
+import ImportResultPanel from "./ImportResultPanel";
+import ProductImportExport from "./products/ProductImportExport";
 
 const STATUS_ORDER = [
   "Ne magazine",
@@ -91,24 +93,68 @@ export default function AllProductsTab({ searchQuery = "" }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+
+  const loadProducts = useCallback(async () => {
+    try {
+      const prods = await api.get("/products");
+      setProducts(prods);
+    } catch (err) {
+      setError(err.message || "Ngarkimi i produkteve dështoi");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const prods = await api.get("/products");
-        if (!cancelled) setProducts(prods);
-      } catch (err) {
-        if (!cancelled)
-          setError(err.message || "Ngarkimi i produkteve dështoi");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    loadProducts();
+  }, [loadProducts]);
+
+  // Fetched as a blob so the session cookie is sent via credentials:'include'.
+  async function handleExport() {
+    setExporting(true);
+    setError("");
+    try {
+      const res = await fetch(api.fileUrl("/products/export"), {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`Eksportimi dështoi (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "products.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.message || "Eksportimi i produkteve dështoi");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleImportFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file next time
+    if (!file) return;
+
+    setImporting(true);
+    setError("");
+    setImportResult(null);
+    try {
+      const result = await api.uploadFile("/products/import", file);
+      setImportResult(result);
+      await loadProducts();
+    } catch (err) {
+      setError(err.message || "Importimi i produkteve dështoi");
+    } finally {
+      setImporting(false);
+    }
+  }
 
   const query = searchQuery.trim().toLowerCase();
   const filtered = products.filter((p) => {
@@ -125,12 +171,27 @@ export default function AllProductsTab({ searchQuery = "" }) {
 
   return (
     <div>
-      <h2 className="text-title text-gray-900 mb-4">All Products</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h2 className="text-title text-gray-900">All Products</h2>
+        <ProductImportExport
+          exporting={exporting}
+          importing={importing}
+          onExport={handleExport}
+          onImportFile={handleImportFile}
+        />
+      </div>
 
       {error && (
         <p role="alert" className={errorTextClasses}>
           {error}
         </p>
+      )}
+
+      {importResult && (
+        <ImportResultPanel
+          result={importResult}
+          onDismiss={() => setImportResult(null)}
+        />
       )}
 
       {filtered.length === 0 ? (

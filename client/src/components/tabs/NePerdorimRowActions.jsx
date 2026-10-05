@@ -16,12 +16,12 @@ import {
  * Serial row (row.serial !== ""): quantity is always 1, that one serial
  * is always included — no quantity picker needed, matches
  * SerialActionsBar's behavior on the Products tab. Also gets an untag
- * ("Hiq") control, since this is the only place these rows are
+ * ("Remove") control, since this is the only place these rows are
  * actionable on this tab.
  *
  * Anonymous row (row.serial === ""): unchanged from before this
  * feature — quantity picker capped at row.sasia, no serials field sent.
- * Also gets a "Shto serial" control to tag one of these units, mirroring
+ * Also gets an "Add serial" control to tag one of these units, mirroring
  * GroupRow's anonymous-remainder row on the Products tab.
  */
 export default function NePerdorimRowActions({
@@ -70,7 +70,7 @@ export default function NePerdorimRowActions({
       setAddingSerialOpen(false);
       await onSerialsChanged();
     } catch (err) {
-      setSerialError(err.message || "Shtimi i serialit dështoi");
+      setSerialError(err.message || "Add serial failed");
     } finally {
       setAdding(false);
     }
@@ -85,7 +85,7 @@ export default function NePerdorimRowActions({
       );
       await onSerialsChanged();
     } catch (err) {
-      setSerialError(err.message || "Heqja e serialit dështoi");
+      setSerialError(err.message || "Remove serial failed");
     } finally {
       setRemoving(false);
     }
@@ -100,10 +100,10 @@ export default function NePerdorimRowActions({
             value={toHolder}
             onChange={(e) => setToHolder(e.target.value)}
             className={`${inputClasses} py-1 w-40`}
-            aria-label="Mbajtësi i ri"
+            aria-label="New holder"
           >
             <option value="" disabled>
-              Zgjidh punonjësin…
+              Employee…
             </option>
             {employees
               .filter((e) => e._id !== row.holderId)
@@ -128,14 +128,14 @@ export default function NePerdorimRowActions({
               close();
             }}
           >
-            Konfirmo
+            Confirm
           </button>
           <button
             type="button"
             className="text-meta text-gray-500 underline"
             onClick={close}
           >
-            Anulo
+            Cancel
           </button>
         </div>
       );
@@ -149,7 +149,7 @@ export default function NePerdorimRowActions({
             className="text-meta text-accent-600 underline"
             onClick={() => setOpen("reassign")}
           >
-            Rialoko
+            Reassign
           </button>
           <button
             type="button"
@@ -162,7 +162,7 @@ export default function NePerdorimRowActions({
               })
             }
           >
-            Kthe në magazinë
+            Return
           </button>
           <button
             type="button"
@@ -170,7 +170,7 @@ export default function NePerdorimRowActions({
             onClick={handleRemoveSerial}
             className="text-meta text-gray-400 hover:text-status-danger underline disabled:opacity-50"
           >
-            {removing ? "Duke hequr…" : "Hiq"}
+            {removing ? "Removing…" : "Remove"}
           </button>
         </div>
         {serialError && <p className={errorTextClasses}>{serialError}</p>}
@@ -190,16 +190,16 @@ export default function NePerdorimRowActions({
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
           className={`${inputClasses} w-16 py-1`}
-          aria-label="Sasia"
+          aria-label="Qty"
         />
         <select
           value={toHolder}
           onChange={(e) => setToHolder(e.target.value)}
           className={`${inputClasses} py-1 w-40`}
-          aria-label="Mbajtësi i ri"
+          aria-label="New holder"
         >
           <option value="" disabled>
-            Zgjidh punonjësin…
+            Employee…
           </option>
           {employees
             .filter((e) => e._id !== row.holderId)
@@ -223,14 +223,14 @@ export default function NePerdorimRowActions({
             close();
           }}
         >
-          Konfirmo
+          Confirm
         </button>
         <button
           type="button"
           className="text-meta text-gray-500 underline"
           onClick={close}
         >
-          Anulo
+          Cancel
         </button>
       </div>
     );
@@ -246,7 +246,7 @@ export default function NePerdorimRowActions({
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
           className={`${inputClasses} w-16 py-1`}
-          aria-label="Sasia për kthim"
+          aria-label="Return qty"
         />
         <button
           type="button"
@@ -256,14 +256,14 @@ export default function NePerdorimRowActions({
             close();
           }}
         >
-          Konfirmo
+          Confirm
         </button>
         <button
           type="button"
           className="text-meta text-gray-500 underline"
           onClick={close}
         >
-          Anulo
+          Cancel
         </button>
       </div>
     );
@@ -277,14 +277,14 @@ export default function NePerdorimRowActions({
           className="text-meta text-accent-600 underline"
           onClick={() => setOpen("reassign")}
         >
-          Rialoko
+          Reassign
         </button>
         <button
           type="button"
           className="text-meta text-accent-600 underline"
           onClick={() => setOpen("return")}
         >
-          Kthe në magazinë
+          Return
         </button>
         {!addingSerialOpen && (
           <button
@@ -292,7 +292,7 @@ export default function NePerdorimRowActions({
             className="text-meta text-gray-400 hover:text-gray-600 underline"
             onClick={() => setAddingSerialOpen(true)}
           >
-            Shto serial
+            Add serial
           </button>
         )}
       </div>
@@ -304,8 +304,8 @@ export default function NePerdorimRowActions({
             autoFocus
             value={newSerial}
             onChange={(e) => setNewSerial(e.target.value)}
-            placeholder="Etiketo një njësi me serial…"
-            aria-label="Serial i ri"
+            placeholder="Serial…"
+            aria-label="New serial"
             className={`${inputClasses} flex-1 py-1`}
           />
           <button
@@ -313,7 +313,7 @@ export default function NePerdorimRowActions({
             disabled={adding || !newSerial.trim()}
             className={`${buttonSecondaryClasses} text-meta py-1 shrink-0`}
           >
-            {adding ? "Duke shtuar…" : "+ Shto"}
+            {adding ? "Adding…" : "+ Add"}
           </button>
           <button
             type="button"
@@ -324,7 +324,7 @@ export default function NePerdorimRowActions({
               setSerialError("");
             }}
           >
-            Anulo
+            Cancel
           </button>
         </form>
       )}

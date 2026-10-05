@@ -2,8 +2,8 @@
 // every place that needs "what tabs can this role see" reads from this,
 // nobody re-derives the role check per component.
 export const TAB_CONFIG = [
-  { id: "products", label: "Products", roles: ["admin", "user"] },
   { id: "all-products", label: "All Products", roles: ["admin", "user"] },
+  { id: "products", label: "Products", roles: ["admin", "user"] },
   { id: "ne-perdorim", label: "In Use", roles: ["admin", "user"] },
   { id: "catalog", label: "Category", roles: ["admin"] },
   { id: "furnitore", label: "Suppliers", roles: ["admin"] },

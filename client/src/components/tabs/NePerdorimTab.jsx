@@ -335,7 +335,7 @@ export default function NePerdorimTab() {
                           className="text-meta text-accent-600 underline"
                           onClick={() => openEdit(r)}
                         >
-                          Ndrysho
+                          Edit
                         </button>
                       </div>
                     </td>
