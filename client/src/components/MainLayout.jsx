@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import Header from "./Header";
 import TabBar, { TAB_CONFIG } from "./TabBar";
@@ -12,11 +12,30 @@ import LogsTab from "./tabs/LogsTab";
 
 export default function MainLayout() {
   const { user, logout } = useAuth();
-  const firstVisibleTab = TAB_CONFIG.find((t) =>
-    t.roles.includes(user.role),
-  )?.id;
-  const [activeTab, setActiveTab] = useState(firstVisibleTab);
+
+  const visibleTabs = TAB_CONFIG.filter((t) => t.roles.includes(user.role));
+  const firstVisibleTab = visibleTabs[0]?.id;
+
+  const getTabFromHash = () => {
+    const id = window.location.hash.slice(1);
+    return visibleTabs.some((t) => t.id === id) ? id : firstVisibleTab;
+  };
+
+  const [activeTab, setActiveTabState] = useState(getTabFromHash);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const setActiveTab = (id) => {
+    window.location.hash = id;
+    setActiveTabState(id);
+  };
+
+  // Keep state in sync with back/forward buttons
+  useEffect(() => {
+    const onHashChange = () => setActiveTabState(getTabFromHash());
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.role]);
 
   return (
     <div className="min-h-screen bg-surface-page">
