@@ -46,6 +46,15 @@ function StatusBadgeCell({ status }) {
 const getUnit = (p) => p.unit;
 const getPrice = (p) => p.purchasePrice;
 const getDescription = (p) => p.description;
+const formatPrice = (v) => {
+  if (v === undefined || v === null || v === "") return "—";
+  const n = Number(v);
+  if (Number.isNaN(n)) return v;
+  const int = Math.round(n)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${int} ALL`;
+};
 
 // Same columns as the "Asete gjendje" sheet, in the same order.
 const COLUMNS = [
@@ -256,8 +265,8 @@ export default function AllProductsTab({ searchQuery = "" }) {
                     <td className="px-4 py-2 text-body text-gray-600">
                       {dash(p.supplier?.name)}
                     </td>
-                    <td className="px-4 py-2 text-body text-gray-600">
-                      {dash(getPrice(p))}
+                    <td className="px-4 py-2 text-body text-gray-600 text-right tabular-nums">
+                      {formatPrice(getPrice(p))}
                     </td>
                     <td className="px-4 py-2">
                       {r.status ? <StatusBadgeCell status={r.status} /> : "—"}

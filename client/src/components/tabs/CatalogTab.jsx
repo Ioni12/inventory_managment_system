@@ -9,16 +9,6 @@ import {
 
 const CATEGORY_FIELDS = [
   { name: "name", label: "Name", required: true },
-  {
-    name: "trackingType",
-    label: "Tracking type",
-    type: "select",
-    required: true,
-    options: [
-      { value: "serial", label: "Serial" },
-      { value: "quantity", label: "Quantity" },
-    ],
-  },
   { name: "description", label: "Description", type: "textarea" },
 ];
 
@@ -27,7 +17,7 @@ const ENTITIES = {
     label: "Categories",
     endpoint: "/categories",
     fields: CATEGORY_FIELDS,
-    columns: ["name", "trackingType"],
+    columns: ["name", "description"],
   },
 };
 
@@ -95,7 +85,7 @@ function EntitySection({ config }) {
           className={buttonPrimaryClasses}
           onClick={() => setModalMode("create")}
         >
-          Add {config.label.slice(0, -1).toLowerCase()}
+          Add category
         </button>
       </div>
 
